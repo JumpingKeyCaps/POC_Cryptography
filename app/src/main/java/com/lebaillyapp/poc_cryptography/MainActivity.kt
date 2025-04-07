@@ -12,7 +12,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.lebaillyapp.poc_cryptography.ui.theme.POC_CryptographyTheme
+import dagger.hilt.android.AndroidEntryPoint
 
+
+/**
+ * MainActivity is the entry point of the application.
+ *
+ */
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
