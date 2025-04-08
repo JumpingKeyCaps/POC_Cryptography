@@ -69,4 +69,13 @@ dependencies {
     //Coroutines
     implementation(libs.kotlinx.coroutines.android)
 
+    //coil
+    implementation("io.coil-kt:coil-compose:2.4.0")
+    implementation("io.coil-kt:coil:2.5.0")
+    implementation("io.coil-kt:coil-video:2.5.0")
+
+    implementation("androidx.compose.material3:material3:1.2.0")
+    implementation("com.google.accompanist:accompanist-pager:0.32.0")
+    implementation("com.google.accompanist:accompanist-pager-indicators:0.32.0")
+
 }
