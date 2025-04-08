@@ -1,8 +1,13 @@
 package com.lebaillyapp.poc_cryptography.screen
 
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lebaillyapp.poc_cryptography.data.repository.CryptoRepository
+import com.lebaillyapp.poc_cryptography.model.CryptoConfig
+import com.lebaillyapp.poc_cryptography.model.SelectedFile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -51,6 +56,60 @@ class CryptoViewModel @Inject constructor(
     private val _decryptProgress = MutableStateFlow(0f)
     val decryptProgress: StateFlow<Float> = _decryptProgress
 
+
+    private val _uiState = MutableStateFlow(CryptoUiState.Idle)
+    val uiState: StateFlow<CryptoUiState> = _uiState
+
+    private val _defaultConfig = MutableStateFlow(CryptoConfig())
+    val defaultConfig: StateFlow<CryptoConfig> = _defaultConfig
+
+
+
+    private val _selectedFile = MutableStateFlow<SelectedFile?>(null)
+    val selectedFile: StateFlow<SelectedFile?> = _selectedFile
+
+
+    fun onFileSelected(uri: Uri, context: Context) {
+        // Récupère les informations du fichier
+        val name = uri.getFileName(context) ?: return
+        val extension = name.substringAfterLast('.', "")
+        val size = uri.getFileSize(context)
+
+        // Crée l'objet SelectedFile
+        val file = SelectedFile(
+            name = name,
+            extension = extension,
+            uri = uri,
+            size = size
+        )
+        _selectedFile.value = file
+        _uiState.value =  CryptoUiState.FileSelectedToEncrypt
+    }
+
+    private fun Uri.getFileName(context: Context): String? {
+        return context.contentResolver.query(this, null, null, null, null)?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            cursor.moveToFirst()
+            cursor.getString(nameIndex)
+        }
+    }
+
+    private fun Uri.getFileSize(context: Context): Long {
+        return context.contentResolver.openFileDescriptor(this, "r")?.use { fileDescriptor ->
+            fileDescriptor.statSize
+        } ?: 0L
+    }
+
+
+
+    /**
+     * Permet de modifier la configuration du cryptage/décryptage.
+     * @param newConfig La nouvelle configuration à appliquer.
+     */
+    fun updateConfig(newConfig: CryptoConfig) {
+        _defaultConfig.value = newConfig
+    }
+
     /**
      * Fonction pour crypter un fichier.
      * Cette méthode démarre une coroutine qui appelle le repository pour effectuer l'encryption du fichier
@@ -62,13 +121,10 @@ class CryptoViewModel @Inject constructor(
      */
     fun encryptFile(fileData: ByteArray, password: String) {
         viewModelScope.launch {
-            cryptoRepository.encryptFile(fileData = fileData, password = password, keySize = 256, iterations = 10000, mode = 1)
-                .catch { e ->
-                    _encryptState.value = Result.failure(e) // Gérer l'erreur et exposer le résultat
-                }
-                .collect { (progress, _) ->
-                    _encryptProgress.value = progress // Mise à jour de la progression de l'encryption
-                }
+            val config = _defaultConfig.value
+            cryptoRepository.encryptFile(fileData, password, config.keySize, config.iterations, config.mode)
+                .catch { e -> _encryptState.value = Result.failure(e) }
+                .collect { (progress, _) -> _encryptProgress.value = progress }
         }
     }
 
@@ -83,13 +139,11 @@ class CryptoViewModel @Inject constructor(
      */
     fun decryptFile(fileData: ByteArray, password: String) {
         viewModelScope.launch {
-            cryptoRepository.decryptFile(fileData = fileData, password = password, keySize = 256, iterations = 10000, mode = 1)
-                .catch { e ->
-                    _decryptState.value = Result.failure(e) // Gérer l'erreur et exposer le résultat
-                }
-                .collect { (progress, _) ->
-                    _decryptProgress.value = progress // Mise à jour de la progression du décryptage
-                }
+            val config = _defaultConfig.value
+            cryptoRepository.decryptFile(fileData, password, config.keySize, config.iterations, config.mode)
+                .catch { e -> _decryptState.value = Result.failure(e) }
+                .collect { (progress, _) -> _decryptProgress.value = progress }
         }
     }
 }
+
