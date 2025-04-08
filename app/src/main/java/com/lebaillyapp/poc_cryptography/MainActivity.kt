@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import com.lebaillyapp.poc_cryptography.screen.CryptoScreen
 import com.lebaillyapp.poc_cryptography.ui.theme.POC_CryptographyTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -27,28 +28,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             POC_CryptographyTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                    CryptoScreen(modifier = Modifier.padding(innerPadding))
                 }
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    POC_CryptographyTheme {
-        Greeting("Android")
     }
 }
