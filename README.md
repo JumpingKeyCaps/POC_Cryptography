@@ -37,7 +37,7 @@ This app follows the **MVVM** (Model-View-ViewModel) architecture for a **clear 
 
 - **ViewModel**: Handles the UI-related data and interacts with the repository.  
 - **CryptoService**: Encapsulates the file encryption and decryption logic.  
-- **CryptoRepository**: A layer between the ViewModel and the CryptoService to manage business logic.
+- **CryptoRepository**: A layer between the ViewModel and the CryptoService to manage data logic.
 
 ---
 
