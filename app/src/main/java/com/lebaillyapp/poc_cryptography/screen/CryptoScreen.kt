@@ -487,38 +487,17 @@ fun CryptoScreen(modifier: Modifier = Modifier, viewModel: CryptoViewModel = hil
         }
     }
     //bottomsheet
-    if (isSheetOpen) {
-        ModalBottomSheet(
-            onDismissRequest = { isSheetOpen = false },
-            sheetState = bottomSheetState,
-            containerColor = if (pagerState.currentPage == 0) gunMetal else chartreuse,
-            dragHandle = { BottomSheetDefaults.DragHandle() },
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text("Settings", style = MaterialTheme.typography.titleLarge,fontFamily = FontFamily(
-                    Font(R.font.sairacondensed_black, weight = FontWeight.Normal)
-                ),
-                    )
-                Spacer(Modifier.height(12.dp))
-                Text("Setup all encryption settings here !")
-                Spacer(Modifier.height(24.dp))
-                Button(onClick = {
-                    isSheetOpen = false
-                },
-                    colors = ButtonDefaults.buttonColors(containerColor = if (pagerState.currentPage == 0) chartreuse else gunMetal)) {
-                    Text(if (pagerState.currentPage == 0) "Encrypt!" else "Decrypt!", fontSize = 25.sp,color = if (pagerState.currentPage == 0) gunMetal else chartreuse,fontFamily = FontFamily(
-                        Font(R.font.bytesized_regular, weight = FontWeight.Normal)
-                    ),)
-                }
-            }
-        }
-    }
+    CryptoBottomSheet(
+        isSheetOpen = isSheetOpen,
+        onDismiss = { isSheetOpen = false },
+        pagerState = pagerState,
+        onEncryptDecryptClick = { password, extension ->
+            //call the viewmodel here to encrypt the file
 
+        }
+    )
+
+    //main compo
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
@@ -813,104 +792,7 @@ fun CryptoScreen(modifier: Modifier = Modifier, viewModel: CryptoViewModel = hil
     }
 }
 
-@Composable
-fun EncryptScreen(viewModel: CryptoViewModel, selectedFile: SelectedFile?) {
-    // Déclare le launcher pour la sélection de fichier
-    val context = LocalContext.current
-    val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri ->
-        uri?.let { viewModel.onFileSelected(it, context) }
-    }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(chartreuse),
-        contentAlignment = Alignment.Center
-    ) {
-        Image(
-            painter = painterResource(id = R.drawable.bunnydeco_b),
-            contentDescription = "Top Bar Decoration",
-            modifier = Modifier
-                .size(380.dp)
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 0.dp),
-            contentScale = ContentScale.Fit,
-            colorFilter = ColorFilter.tint(gunMetal.copy(alpha = 0.1f))
-        )
-
-
-        // Si un fichier a été sélectionné, affiche une carte avec les infos du fichier
-        selectedFile?.let {
-
-
-
-            Row(modifier = Modifier.align(Alignment.Center).fillMaxSize().padding(bottom = 60.dp)) {
-                //file infos
-                FileInfoCard(selectedFile = it,modifier = Modifier.weight(0.65f))
-                Spacer(modifier = Modifier.width(2.dp))
-                // Aperçu binaire
-                Card(
-                    modifier = Modifier
-                        .weight(0.35f)
-                        .fillMaxSize()
-                        .padding(end = 8.dp,top = 20.dp,bottom = 20.dp),
-                    elevation = CardDefaults.cardElevation(4.dp),
-                    colors = CardDefaults.cardColors(containerColor = gunMetal.copy(alpha = 0.8f)),
-                    shape = RoundedCornerShape(
-                        topStart = 0.dp,   // Coin supérieur gauche
-                        topEnd = 16.dp,     // Coin supérieur droit
-                        bottomStart = 0.dp, // Coin inférieur gauche
-                        bottomEnd = 16.dp  // Coin inférieur droit
-                    )
-                ) {
-                    Text(
-                        text = "> ${getBinaryPreview(it.uri)}",
-                        modifier = Modifier
-                            .padding(8.dp)
-                            .fillMaxSize()
-                            .align(Alignment.Start)
-                            .verticalScroll(rememberScrollState()),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = chartreuse,
-                        textAlign = TextAlign.Start,
-                        fontFamily = FontFamily(
-                            Font(R.font.sairacondensed_black, weight = FontWeight.Bold)
-                        ),
-                        fontSize = 11.sp
-                    )
-                }
-
-            }
-
-
-
-        } ?: run {
-            // Sinon, affiche le bouton pour ajouter un fichier
-            Button(
-                onClick = { filePickerLauncher.launch("application/*") },
-                modifier = Modifier
-                    .height(86.dp)
-                    .padding(top = 10.dp, start = 30.dp, end = 30.dp, bottom = 10.dp)
-                    .align(Alignment.Center),
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(containerColor = gunMetal)
-            ) {
-                Text(
-                    "Add a file to encrypt !",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = chartreuse,
-                    fontFamily = FontFamily(
-                        Font(R.font.sairacondensed_black, weight = FontWeight.Bold)
-                    )
-                )
-            }
-        }
-
-
-    }
-}
 
 @Composable
 fun FileInfoCard(selectedFile: SelectedFile, modifier: Modifier = Modifier) {
@@ -1143,27 +1025,6 @@ fun Int.toPrettyFormat(): String {
 
 
 
-@Composable
-fun DecryptScreen() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(gunMetal),
-        contentAlignment = Alignment.Center
-    ) {
 
 
 
-        Image(
-            painter = painterResource(id = R.drawable.bunnydeco_b),
-
-            contentDescription = "Top Bar Decoration",
-            modifier = Modifier
-                .size(380.dp)
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 0.dp),
-            contentScale = ContentScale.Fit,
-            colorFilter = ColorFilter.tint(chartreuse.copy(alpha = 0.1f))
-        )
-    }
-}
