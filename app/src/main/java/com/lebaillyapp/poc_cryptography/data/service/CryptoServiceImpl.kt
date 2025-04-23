@@ -1,8 +1,11 @@
 package com.lebaillyapp.poc_cryptography.data.service
 
 import android.util.Base64
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import java.io.ByteArrayOutputStream
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.SecretKey
@@ -44,7 +47,8 @@ class CryptoServiceImpl : CryptoService {
         password: String,
         keySize: Int?,
         iterations: Int?,
-        mode: Int?
+        mode: Int?,
+        extension: String
     ): Flow<Pair<Float, ByteArray>> {
         val mKeySize = keySize ?: defaultKeySize
         val mIterations = iterations ?: defaultIterations
@@ -53,43 +57,46 @@ class CryptoServiceImpl : CryptoService {
         val salt = generateSalt()
         val iv = generateIv()
 
-        // Derive the key from the password and salt
         val secretKey = generateKeyFromPassword(password, salt, mKeySize, mIterations)
-
-        // Get the selected encryption mode
         val encryptionMode = modes[mMode] ?: defaultMode
 
         val cipher = Cipher.getInstance(encryptionMode)
         cipher.init(Cipher.ENCRYPT_MODE, secretKey, IvParameterSpec(iv))
 
-        // Total size for progress calculation
         val totalSize = fileData.size.toFloat()
         var bytesProcessed = 0
+        val buffer = ByteArray(4096)
 
-        val buffer = ByteArray(1024) // Buffer for processing the file in chunks
+        val encryptedDataList = mutableListOf<Byte>()
 
         return flow {
-            // Encrypt file in chunks
             while (bytesProcessed < totalSize) {
                 val length = minOf(buffer.size.toFloat(), totalSize - bytesProcessed).toInt()
                 fileData.copyInto(buffer, 0, bytesProcessed, bytesProcessed + length)
 
-                // Process chunk of data
-                cipher.update(buffer, 0, length)
+                // Crypter la partie du fichier
+                val updatedData = cipher.update(buffer, 0, length)
+                encryptedDataList.addAll(updatedData.toList())
 
-                // Update bytes processed
                 bytesProcessed += length
 
-                // Emit progress (between 0 and 1)
+                // Émettre la progression avec les données cryptées accumulées
                 emit(Pair(bytesProcessed / totalSize, ByteArray(0)))
             }
 
-            // Finalize encryption and get encrypted data
-            val encryptedData = cipher.doFinal()
+            // Finaliser l'encryption et ajouter les données restantes
+            val finalEncryptedData = cipher.doFinal()
+            encryptedDataList.addAll(finalEncryptedData.toList())
 
-            // Emit final progress (100%) and the encrypted data
-            emit(Pair(1.0f, encryptedData))
-        }
+            // Préfixer avec salt + IV (16 bytes chacun)
+            val finalOutput = ByteArray(salt.size + iv.size + encryptedDataList.size)
+            salt.copyInto(finalOutput, 0)
+            iv.copyInto(finalOutput, salt.size)
+            encryptedDataList.toByteArray().copyInto(finalOutput, salt.size + iv.size)
+
+            // Émettre la progression finale et les données cryptées complètes
+            emit(Pair(1.0f, finalOutput))
+        }.flowOn(Dispatchers.IO)
     }
 
     /**
