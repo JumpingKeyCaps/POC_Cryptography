@@ -26,8 +26,9 @@ class CryptoRepository  @Inject constructor(
         password: String,
         keySize: Int?,
         iterations: Int?,
-        mode: Int?
-    ): Flow<Pair<Float, ByteArray>> = cryptoService.encryptFile(fileData, password, keySize, iterations, mode)
+        mode: Int?,
+        extension: String
+    ): Flow<Pair<Float, ByteArray>> = cryptoService.encryptFile(fileData, password, keySize, iterations, mode, extension)
 
     /**
      * Fonction pour décrypter un fichier.
