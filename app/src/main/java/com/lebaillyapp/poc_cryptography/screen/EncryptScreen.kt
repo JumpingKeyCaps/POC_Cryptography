@@ -5,6 +5,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -69,10 +70,7 @@ fun EncryptScreen(viewModel: CryptoViewModel, selectedFile: SelectedFile?) {
 
         // Si un fichier a été sélectionné, affiche une carte avec les infos du fichier
         selectedFile?.let {
-
-
-
-            Row(modifier = Modifier.align(Alignment.Center).fillMaxSize().padding(bottom = 60.dp)) {
+            Row(modifier = Modifier.align(Alignment.TopCenter).fillMaxSize().padding(top = 10.dp,bottom = 54.dp)) {
                 //file infos
                 FileInfoCard(selectedFile = it,modifier = Modifier.weight(0.65f))
                 Spacer(modifier = Modifier.width(2.dp))
@@ -81,7 +79,7 @@ fun EncryptScreen(viewModel: CryptoViewModel, selectedFile: SelectedFile?) {
                     modifier = Modifier
                         .weight(0.35f)
                         .fillMaxSize()
-                        .padding(end = 8.dp,top = 20.dp,bottom = 20.dp),
+                        .padding(end = 8.dp,top = 10.dp,bottom = 20.dp),
                     elevation = CardDefaults.cardElevation(4.dp),
                     colors = CardDefaults.cardColors(containerColor = gunMetal.copy(alpha = 0.8f)),
                     shape = RoundedCornerShape(
@@ -109,6 +107,28 @@ fun EncryptScreen(viewModel: CryptoViewModel, selectedFile: SelectedFile?) {
                 }
 
             }
+
+
+            // Bouton Reset
+            Button(
+                onClick = { viewModel.resetFile() },
+                modifier = Modifier
+                    .height(56.dp)
+                    .padding(top = 0.dp, start = 30.dp, end = 30.dp, bottom = 20.dp)
+                    .align(Alignment.BottomStart),
+                shape = RoundedCornerShape(50),
+                colors = ButtonDefaults.buttonColors(containerColor = gunMetal)
+            ) {
+                Text(
+                    "Reset File",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = chartreuse,
+                    fontFamily = FontFamily(
+                        Font(R.font.sairacondensed_black, weight = FontWeight.Bold)
+                    )
+                )
+            }
+
 
 
 
