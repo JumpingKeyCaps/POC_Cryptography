@@ -22,7 +22,8 @@ interface CryptoService {
         password: String,
         keySize: Int? = 256,
         iterations: Int? = 10000,
-        mode: Int? = 1
+        mode: Int? = 1,
+        extension: String
     ): Flow<Pair<Float, ByteArray>>
 
     /**
