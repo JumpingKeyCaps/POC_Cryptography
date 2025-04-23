@@ -1,5 +1,6 @@
 package com.lebaillyapp.poc_cryptography.screen
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.net.Uri
@@ -61,6 +62,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -103,8 +105,11 @@ import kotlinx.coroutines.launch
 import java.lang.reflect.Array.set
 import kotlin.math.roundToInt
 import coil.compose.AsyncImage
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun CryptoScreen(modifier: Modifier = Modifier, viewModel: CryptoViewModel = hiltViewModel()) {
     val context = LocalContext.current
@@ -112,7 +117,10 @@ fun CryptoScreen(modifier: Modifier = Modifier, viewModel: CryptoViewModel = hil
     val selectedFile by viewModel.selectedFile.collectAsState()
     val config by viewModel.defaultConfig.collectAsState()
 
-
+    val isEncryptionCancelled by viewModel.isEncryptionCancelled.collectAsState()
+    val encryptState by viewModel.encryptState.collectAsState()
+    val encryptProgress by viewModel.encryptProgress.collectAsState()
+    val isProcessing = encryptProgress in 0.1f..1f && !isEncryptionCancelled
 
     val pageCount = 2
     val pagerState = rememberPagerState { pageCount }
@@ -122,6 +130,24 @@ fun CryptoScreen(modifier: Modifier = Modifier, viewModel: CryptoViewModel = hil
 
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
     val topBarHeight = screenHeight * (if (pagerState.currentPage == 0) 0.5f else 0.5f)
+
+
+    // Handle Permissions
+    val permissionState = rememberPermissionState(permission = Manifest.permission.WRITE_EXTERNAL_STORAGE)
+
+    // Request permission if not granted
+    LaunchedEffect(Unit) {
+        if (!permissionState.status.isGranted) {
+            permissionState.launchPermissionRequest()
+        }
+    }
+
+    // Show permission request rationale if needed
+    if (!permissionState.status.isGranted) {
+        // You can show a rationale here if needed for the user
+        // Example: Snackbar or Dialog to explain why the app needs this permission
+    }
+
 
 
     // State for Dialog visibility
@@ -346,7 +372,6 @@ fun CryptoScreen(modifier: Modifier = Modifier, viewModel: CryptoViewModel = hil
         )
     }
 
-
     var isKeyDerivationDialogOpen by remember { mutableStateOf(false) }
     // Dialog for Key Derivation with SeekBar
     if (isKeyDerivationDialogOpen) {
@@ -475,6 +500,80 @@ fun CryptoScreen(modifier: Modifier = Modifier, viewModel: CryptoViewModel = hil
     }
 
 
+
+
+    // Dialog d'Encryption
+    if (isProcessing) {
+        AlertDialog(
+            onDismissRequest = { /* Do nothing to prevent dismissing the dialog */ },
+            title = {
+                if(encryptProgress < 1f){
+                    Text(
+                        "Encryption in progress...",
+                        color = chartreuse,
+                        fontFamily = FontFamily(
+                            Font(R.font.sairacondensed_black, weight = FontWeight.Bold)
+                        )
+                    )
+                }else{
+                    Text(
+                        "Encryption completed!",
+                        color = chartreuse,
+                        fontFamily = FontFamily(
+                            Font(R.font.sairacondensed_black, weight = FontWeight.Bold)
+                        )
+                    )
+                }
+
+            },
+            text = {
+                Column {
+                    // Afficher la barre de progression seulement si la progression est inférieure à 100%
+                    if (encryptProgress < 1f) {
+                        LinearProgressIndicator(progress = encryptProgress)
+                        Text(
+                            "Progression: ${"%.1f".format(encryptProgress * 100)}%",
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontFamily = FontFamily(
+                                Font(R.font.sairacondensed_black, weight = FontWeight.Bold)
+                            )
+                        )
+                    } else {
+                        // Lorsque la progression atteint 100%, afficher un message de fin
+                        Text(
+                            "The file has been successfully encrypted!",
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontFamily = FontFamily(
+                                Font(R.font.sairacondensed_black, weight = FontWeight.Bold)
+                            )
+                        )
+                    }
+                }
+            },
+            containerColor = gunMetal,
+            titleContentColor = chartreuse,
+            confirmButton = {
+                TextButton(onClick = { viewModel.cancelEncryption() }) {
+                    Text(if(encryptProgress < 1f) "Cancel" else "Close")
+                }
+
+                //clean the file selector at the end
+                if(encryptProgress >= 1f){
+                    viewModel.resetFile()
+                }
+
+            }
+        )
+
+    }
+
+
+
+
+
+
     //nav bar color
     val activity = LocalActivity.current
     val navBarColor = if (pagerState.currentPage == 0) gunMetal else chartreuse
@@ -493,6 +592,16 @@ fun CryptoScreen(modifier: Modifier = Modifier, viewModel: CryptoViewModel = hil
         pagerState = pagerState,
         onEncryptDecryptClick = { password, extension ->
             //call the viewmodel here to encrypt the file
+
+
+            selectedFile?.let { file ->
+                // Appel de la méthode d'encryptage avec les données du fichier
+                val fileData = file.uri.let { context.contentResolver.openInputStream(it)?.readBytes() }
+                fileData?.let {
+                    viewModel.encryptFile(it, password,extension, context)
+                }
+            }
+
 
         }
     )
@@ -805,7 +914,7 @@ fun FileInfoCard(selectedFile: SelectedFile, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(start = 8.dp, top = 20.dp, bottom = 20.dp)
+            .padding(start = 8.dp, top = 10.dp, bottom = 20.dp)
             .background(gunMetal, RoundedCornerShape(
                 topStart = 16.dp,   // Coin supérieur gauche
                 topEnd = 0.dp,     // Coin supérieur droit
@@ -875,7 +984,7 @@ fun FileInfoCard(selectedFile: SelectedFile, modifier: Modifier = Modifier) {
                         contentDescription = "Preview",
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(120.dp),
+                            .height(90.dp),
                         contentScale = ContentScale.Crop
                     )
                 } else {
