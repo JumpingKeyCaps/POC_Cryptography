@@ -55,7 +55,7 @@ fun CryptoBottomSheet(
     val textColorInv = if (pagerState.currentPage == 0) chartreuse else gunMetal
 
     var password by remember { mutableStateOf("") }
-    var extension by remember { mutableStateOf(".crypt") }
+    var extension by remember { mutableStateOf("crypt") }
     var passwordVisible by remember { mutableStateOf(false) }
 
     if (isSheetOpen) {
