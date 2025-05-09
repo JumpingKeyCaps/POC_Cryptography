@@ -27,11 +27,11 @@ val gunMetal3 = Color(0xFFf4f1de)
 val chartreuse4 = Color(0xFFe1bb80)
 val gunMetal4 = Color(0xFF352208)
 
-val chartreuse = Color(0xFFe0ff4f)
-val gunMetal = Color(0xFF00272b)
+val chartreuse5 = Color(0xFFe0ff4f)
+val gunMetal5 = Color(0xFF00272b)
 
-val chartreuse6 = Color(0xFFc30f45)
-val gunMetal6 = Color(0xFF231123)
+val chartreuse = Color(0xFFc30f45)
+val gunMetal = Color(0xFF231123)
 
 val chartreuse7 = Color(0xFF694873)
 val gunMetal7 = Color(0xFF16302B)
