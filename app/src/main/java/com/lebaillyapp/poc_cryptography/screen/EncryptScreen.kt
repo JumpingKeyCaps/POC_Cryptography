@@ -1,11 +1,11 @@
 package com.lebaillyapp.poc_cryptography.screen
 
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +23,9 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
@@ -47,7 +50,13 @@ fun EncryptScreen(viewModel: CryptoViewModel, selectedFile: SelectedFile?) {
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
+        Log.d("EncryptScreen", "EncryptScreen: URI SELECTED : ${uri?.path}")
         uri?.let { viewModel.onFileSelected(it, context) }
+    }
+
+    val selectedStuff by viewModel.selectedFile.collectAsState()
+    LaunchedEffect(selectedStuff) {
+        Log.d("EncryptScreen", "Selected file: ${selectedStuff}")
     }
 
     Box(
@@ -70,7 +79,10 @@ fun EncryptScreen(viewModel: CryptoViewModel, selectedFile: SelectedFile?) {
 
         // Si un fichier a été sélectionné, affiche une carte avec les infos du fichier
         selectedFile?.let {
-            Row(modifier = Modifier.align(Alignment.TopCenter).fillMaxSize().padding(top = 10.dp,bottom = 54.dp)) {
+            Row(modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxSize()
+                .padding(top = 10.dp, bottom = 54.dp)) {
                 //file infos
                 FileInfoCard(selectedFile = it,modifier = Modifier.weight(0.65f))
                 Spacer(modifier = Modifier.width(2.dp))
@@ -79,7 +91,7 @@ fun EncryptScreen(viewModel: CryptoViewModel, selectedFile: SelectedFile?) {
                     modifier = Modifier
                         .weight(0.35f)
                         .fillMaxSize()
-                        .padding(end = 8.dp,top = 10.dp,bottom = 20.dp),
+                        .padding(end = 8.dp, top = 10.dp, bottom = 20.dp),
                     elevation = CardDefaults.cardElevation(4.dp),
                     colors = CardDefaults.cardColors(containerColor = gunMetal.copy(alpha = 0.8f)),
                     shape = RoundedCornerShape(
