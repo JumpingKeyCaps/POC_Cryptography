@@ -3,7 +3,11 @@ package com.lebaillyapp.poc_cryptography.screen
 import android.Manifest
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
+import android.os.Environment
+import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,14 +20,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
@@ -31,29 +32,16 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButtonDefaults.Icon
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -72,7 +60,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.toArgb
@@ -87,27 +74,23 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import coil.compose.rememberImagePainter
 import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
 import com.lebaillyapp.poc_cryptography.R
 import com.lebaillyapp.poc_cryptography.model.SelectedFile
-import com.lebaillyapp.poc_cryptography.ui.theme.Purple80
-import com.lebaillyapp.poc_cryptography.ui.theme.VeryDark
-import com.lebaillyapp.poc_cryptography.ui.theme.YellowContrast
 import com.lebaillyapp.poc_cryptography.ui.theme.chartreuse
 import com.lebaillyapp.poc_cryptography.ui.theme.gunMetal
 import kotlinx.coroutines.launch
-import java.lang.reflect.Array.set
 import kotlin.math.roundToInt
-import coil.compose.AsyncImage
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -121,6 +104,9 @@ fun CryptoScreen(modifier: Modifier = Modifier, viewModel: CryptoViewModel = hil
     val encryptState by viewModel.encryptState.collectAsState()
     val encryptProgress by viewModel.encryptProgress.collectAsState()
     val isProcessing = encryptProgress in 0.1f..1f && !isEncryptionCancelled
+    val encryptedFilePath by viewModel.encryptedFilePath.collectAsState()
+    val generatedSalt by viewModel.generatedSalt.collectAsState()
+    val generatedHash by viewModel.generatedHash.collectAsState()
 
     val pageCount = 2
     val pagerState = rememberPagerState { pageCount }
@@ -517,11 +503,10 @@ fun CryptoScreen(modifier: Modifier = Modifier, viewModel: CryptoViewModel = hil
                     )
                 }else{
                     Text(
-                        "Encryption completed!",
+                        "The file has been successfully encrypted!",
                         color = chartreuse,
-                        fontFamily = FontFamily(
-                            Font(R.font.sairacondensed_black, weight = FontWeight.Bold)
-                        )
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontFamily = FontFamily(Font(R.font.sairacondensed_black, FontWeight.Bold))
                     )
                 }
 
@@ -542,12 +527,10 @@ fun CryptoScreen(modifier: Modifier = Modifier, viewModel: CryptoViewModel = hil
                     } else {
                         // Lorsque la progression atteint 100%, afficher un message de fin
                         Text(
-                            "The file has been successfully encrypted!",
-                            color = Color.White,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontFamily = FontFamily(
-                                Font(R.font.sairacondensed_black, weight = FontWeight.Bold)
-                            )
+                            "Saved to: $encryptedFilePath",
+                            color = chartreuse,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = FontFamily(Font(R.font.sairacondensed_black, FontWeight.Normal))
                         )
                     }
                 }
@@ -564,13 +547,46 @@ fun CryptoScreen(modifier: Modifier = Modifier, viewModel: CryptoViewModel = hil
                     viewModel.resetFile()
                 }
 
+            },
+            dismissButton = {
+                if (encryptProgress >= 1f && !encryptedFilePath.isNullOrEmpty()) {
+                    TextButton(onClick = {
+                        val externalStorageDir = Environment.getExternalStorageDirectory()
+                        val encryptedDir = File(externalStorageDir, "Documents/Encrypted")
+                        Log.d("EncryptionDialog", "Encrypted Dir Path (using root): ${encryptedDir.absolutePath}")
+
+                        val folderUri: Uri? = FileProvider.getUriForFile(
+                            context,
+                            "${context.applicationContext.packageName}.fileprovider",
+                            encryptedDir
+                        )
+
+                        folderUri?.let { uri ->
+                            val intent = Intent(Intent.ACTION_VIEW)
+                            intent.setDataAndType(uri, "resource/folder")
+                            intent.flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+
+                            try {
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "No app found to open the file explorer.", Toast.LENGTH_SHORT).show()
+                                Log.e("EncryptionDialog", "Error opening file explorer: ${e.message}")
+                            }
+                        } ?: run {
+                            Log.e("EncryptionDialog", "Could not get content URI for folder.")
+                            Toast.makeText(context, "Error accessing folder.", Toast.LENGTH_SHORT).show()
+                        }
+                    }) {
+                        Text("Open Folder")
+                    }
+                }
             }
         )
 
     }
 
 
-
+//
 
 
 
@@ -585,24 +601,25 @@ fun CryptoScreen(modifier: Modifier = Modifier, viewModel: CryptoViewModel = hil
             WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightNavigationBars = false
         }
     }
-    //bottomsheet
+    // BottomSheet
     CryptoBottomSheet(
         isSheetOpen = isSheetOpen,
         onDismiss = { isSheetOpen = false },
         pagerState = pagerState,
-        onEncryptDecryptClick = { password, extension ->
-            //call the viewmodel here to encrypt the file
-
-
+        onEncryptDecryptClick = { password, extension, obfuscateFileName -> // Récupérer l'état du switch
             selectedFile?.let { file ->
-                // Appel de la méthode d'encryptage avec les données du fichier
-                val fileData = file.uri.let { context.contentResolver.openInputStream(it)?.readBytes() }
-                fileData?.let {
-                    viewModel.encryptFile(it, password,extension, context)
+                if (pagerState.currentPage == 0) {
+                    viewModel.encryptFile(password, extension, context, obfuscateFileName) // Passer l'état au ViewModel
+                } else {
+                    Log.d("CryptoScreen", "Decrypt button clicked with password: $password")
+                     viewModel.decryptFile(file.uri, password, context)
                 }
             }
-
-
+        },
+        generatedSalt = generatedSalt,
+        generatedHash = generatedHash,
+        onPasswordChanged = { password ->
+            viewModel.generateSaltAndHash(password)
         }
     )
 
@@ -929,15 +946,15 @@ fun FileInfoCard(selectedFile: SelectedFile, modifier: Modifier = Modifier) {
         //le nom du fichier
         Card(
             modifier = Modifier.padding(horizontal = 4.dp).align(Alignment.CenterHorizontally),
-            colors = CardDefaults.cardColors(containerColor = chartreuse),
+            colors = CardDefaults.cardColors(containerColor = gunMetal),
             shape = RoundedCornerShape(40.dp),
-            elevation = CardDefaults.cardElevation(2.dp),
+            elevation = CardDefaults.cardElevation(0.dp),
 
         ) {
             Text(
                 text = fileName,
                 fontSize = 14.sp,
-                color = gunMetal,
+                color = chartreuse,
                 fontFamily = FontFamily(
                     Font(R.font.sairacondensed_black, weight = FontWeight.Bold)
                 ),
@@ -961,7 +978,7 @@ fun FileInfoCard(selectedFile: SelectedFile, modifier: Modifier = Modifier) {
             Card(
                 modifier = Modifier
                     .weight(1f)
-                    .height(120.dp)
+                    .height(105.dp)
                     .padding(end = 8.dp),
                 elevation = CardDefaults.cardElevation(4.dp),
                 colors = CardDefaults.cardColors(containerColor = gunMetal)
