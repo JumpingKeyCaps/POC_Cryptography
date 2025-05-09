@@ -46,8 +46,8 @@ fun POC_CryptographyTheme(
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
 
-        darkTheme -> LightColorScheme
-        else -> LightColorScheme
+        darkTheme -> DarkColorScheme
+        else -> DarkColorScheme
     }
 
     MaterialTheme(
