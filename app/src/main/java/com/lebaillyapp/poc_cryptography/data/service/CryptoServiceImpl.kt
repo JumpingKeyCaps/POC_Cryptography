@@ -6,17 +6,22 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import java.io.ByteArrayOutputStream
+import java.io.InputStream
+import java.io.OutputStream
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.SecretKey
 import javax.crypto.SecretKeyFactory
+import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.IvParameterSpec
+import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
+import javax.inject.Inject
 
 /**
  * Implementation of the CryptoService.
  */
-class CryptoServiceImpl : CryptoService {
+class CryptoServiceImpl @Inject constructor() : CryptoService {
 
     // Default size for AES key (256 bits)
     private val defaultKeySize = 256
@@ -25,183 +30,183 @@ class CryptoServiceImpl : CryptoService {
     // Default mode (AES/CBC/PKCS5Padding)
     private val defaultMode = "AES/CBC/PKCS5Padding"
 
-    // Supported encryption modes (Cipher Block Chaining, GCM, etc.)
+    // Supported encryption modes
     private val modes = mapOf(
-        1 to "AES/CBC/PKCS5Padding",   // AES with CBC mode and PKCS5 padding
-        2 to "AES/GCM/NoPadding",      // AES with GCM mode and No padding
-        3 to "AES/CTR/NoPadding"       // AES with CTR mode and No padding
+        1 to "AES/CBC/PKCS5Padding",
+        2 to "AES/GCM/NoPadding",
+        3 to "AES/CTR/NoPadding"
     )
 
+    // Variables pour stocker le sel et le hash courants
+    override var currentSalt: ByteArray? = null
+    override var currentHash: ByteArray? = null
+
+    // Variable pour stocker le dernier sel généré (pour affichage initial)
+    private var lastGeneratedSalt: ByteArray? = null
+
+    override fun getLastGeneratedSalt(): ByteArray? = lastGeneratedSalt
+
+    override fun hashPasswordForDisplay(password: String, salt: ByteArray?): ByteArray? {
+        if (salt == null) return null
+        return try {
+            val keyFactory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+            val keySpec = PBEKeySpec(password.toCharArray(), salt, 1, 32 * 8)
+            keyFactory.generateSecret(keySpec).encoded
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
     /**
-     * Encrypts the provided file data using AES encryption with a password-derived key.
+     * Génère un nouveau sel et le stocke comme le sel courant.
      *
-     * @param fileData Data of the file to be encrypted
-     * @param password User-provided password for encryption key derivation
-     * @param keySize Size of the key in bits (default is 256)
-     * @param iterations Number of iterations for key derivation (default is 10000)
-     * @param mode Mode of encryption (1 for AES/CBC, 2 for AES/GCM, 3 for AES/CTR)
-     * @return A Flow that emits the encryption progress (from 0 to 1) and the encrypted data as a byte array (Base64 encoded)
+     * @return Le sel généré.
      */
+    override fun generateSalt(): ByteArray {
+        val salt = ByteArray(16)
+        SecureRandom().nextBytes(salt)
+        currentSalt = salt
+        return salt
+    }
+
+
+
+    /**
+     * Génère un hash du mot de passe en utilisant le sel courant et le stocke comme le hash courant.
+     *
+     * @param password Le mot de passe utilisateur.
+     * @return Le hash généré sous forme de tableau de bytes ou null si aucun sel courant n'est disponible.
+     */
+    override fun generateHash(password: String?): ByteArray? {
+        val salt = currentSalt ?: return null
+        return try {
+            val keyFactory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+            val keySpec = PBEKeySpec(password?.toCharArray(), salt, defaultIterations, defaultKeySize)
+            val key = keyFactory.generateSecret(keySpec).encoded
+            currentHash = key
+            key
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
     override fun encryptFile(
-        fileData: ByteArray,
+        inputStream: InputStream,
+        outputStream: OutputStream,
         password: String,
         keySize: Int?,
         iterations: Int?,
         mode: Int?,
         extension: String
-    ): Flow<Pair<Float, ByteArray>> {
+    ): Flow<Float> = flow {
         val mKeySize = keySize ?: defaultKeySize
         val mIterations = iterations ?: defaultIterations
         val mMode = mode ?: 1
 
-        val salt = generateSalt()
+        val saltToUse = currentSalt ?: generateSalt().also { currentSalt = it } // Utiliser le sel courant ou en générer un
         val iv = generateIv()
-
-        val secretKey = generateKeyFromPassword(password, salt, mKeySize, mIterations)
+        val secretKey = generateKeyFromPassword(password, saltToUse, mKeySize, mIterations)
         val encryptionMode = modes[mMode] ?: defaultMode
 
         val cipher = Cipher.getInstance(encryptionMode)
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey, IvParameterSpec(iv))
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey, when (encryptionMode) {
+            "AES/GCM/NoPadding" -> GCMParameterSpec(128, iv)
+            else -> IvParameterSpec(iv)
+        })
 
-        val totalSize = fileData.size.toFloat()
-        var bytesProcessed = 0
-        val buffer = ByteArray(4096)
+        outputStream.write(saltToUse) // Écrire le sel
+        outputStream.write(iv)        // Écrire l'IV
 
-        val encryptedDataList = mutableListOf<Byte>()
+        val buffer = ByteArray(8192)
+        var bytesRead: Int
+        var totalBytesRead = 0L
+        val totalBytes = try { inputStream.available().toLong() } catch (e: Exception) { -1L }
 
-        return flow {
-            while (bytesProcessed < totalSize) {
-                val length = minOf(buffer.size.toFloat(), totalSize - bytesProcessed).toInt()
-                fileData.copyInto(buffer, 0, bytesProcessed, bytesProcessed + length)
-
-                // Crypter la partie du fichier
-                val updatedData = cipher.update(buffer, 0, length)
-                encryptedDataList.addAll(updatedData.toList())
-
-                bytesProcessed += length
-
-                // Émettre la progression avec les données cryptées accumulées
-                emit(Pair(bytesProcessed / totalSize, ByteArray(0)))
+        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+            val encryptedChunk = cipher.update(buffer, 0, bytesRead)
+            outputStream.write(encryptedChunk)
+            totalBytesRead += bytesRead
+            if (totalBytes > 0) {
+                emit(totalBytesRead.toFloat() / totalBytes.toFloat())
+            } else {
+                emit(-1f)
             }
+        }
 
-            // Finaliser l'encryption et ajouter les données restantes
-            val finalEncryptedData = cipher.doFinal()
-            encryptedDataList.addAll(finalEncryptedData.toList())
+        val finalChunk = cipher.doFinal()
+        outputStream.write(finalChunk)
+        emit(1.0f)
 
-            // Préfixer avec salt + IV (16 bytes chacun)
-            val finalOutput = ByteArray(salt.size + iv.size + encryptedDataList.size)
-            salt.copyInto(finalOutput, 0)
-            iv.copyInto(finalOutput, salt.size)
-            encryptedDataList.toByteArray().copyInto(finalOutput, salt.size + iv.size)
+        outputStream.flush()
+        lastGeneratedSalt = saltToUse
+        currentSalt = null // Réinitialiser après l'encryption
+        currentHash = null // Réinitialiser après l'encryption
+    }.flowOn(Dispatchers.IO)
 
-            // Émettre la progression finale et les données cryptées complètes
-            emit(Pair(1.0f, finalOutput))
-        }.flowOn(Dispatchers.IO)
-    }
-
-    /**
-     * Decrypts the provided file data using AES decryption with a password-derived key,
-     * and reports progress during decryption.
-     *
-     * @param fileData The encrypted data to be decrypted
-     * @param password The user-provided password used to derive the decryption key
-     * @param keySize Size of the key in bits (default is 256)
-     * @param iterations Number of iterations for key derivation (default is 10000)
-     * @param mode Mode of encryption (1 for AES/CBC, 2 for AES/GCM, 3 for AES/CTR)
-     * @return A Flow that emits the decryption progress (from 0 to 1) and the decrypted data as a byte array
-     */
     override fun decryptFile(
-        fileData: ByteArray,
+        inputStream: InputStream,
+        outputStream: OutputStream,
         password: String,
         keySize: Int?,
         iterations: Int?,
         mode: Int?
-    ): Flow<Pair<Float, ByteArray>> {
-
+    ): Flow<Float> = flow {
         val mKeySize = keySize ?: defaultKeySize
         val mIterations = iterations ?: defaultIterations
         val mMode = mode ?: 1
 
-        val decodedData = Base64.decode(fileData, Base64.NO_WRAP)
-
-        // Extract salt, IV, and encrypted data from the decoded data
-        val salt = decodedData.copyOfRange(0, 16)
-        val iv = decodedData.copyOfRange(16, 32)
-        val encryptedData = decodedData.copyOfRange(32, decodedData.size)
-
-        // Derive the key from the password and salt
+        val salt = ByteArray(16)
+        inputStream.read(salt)
+        val iv = ByteArray(16)
+        inputStream.read(iv)
         val secretKey = generateKeyFromPassword(password, salt, mKeySize, mIterations)
-
-        // Get the selected encryption mode
         val encryptionMode = modes[mMode] ?: defaultMode
-
         val cipher = Cipher.getInstance(encryptionMode)
         cipher.init(Cipher.DECRYPT_MODE, secretKey, IvParameterSpec(iv))
 
-        // Total size for progress calculation
-        val totalSize = encryptedData.size.toFloat()
-        var bytesProcessed = 0
-
-        val buffer = ByteArray(1024) // Buffer for processing the file in chunks
-
-        return flow {
-            // Decrypt file in chunks
-            while (bytesProcessed < totalSize) {
-                val length = minOf(buffer.size.toFloat(), totalSize - bytesProcessed).toInt()
-                encryptedData.copyInto(buffer, 0, bytesProcessed, bytesProcessed + length)
-
-                // Process chunk of data
-                cipher.update(buffer, 0, length)
-
-                // Update bytes processed
-                bytesProcessed += length
-
-                // Emit progress (between 0 and 1)
-                emit(Pair(bytesProcessed / totalSize, ByteArray(0)))
-            }
-
-            // Finalize decryption and get decrypted data
-            val decryptedData = cipher.doFinal()
-
-            // Emit final progress (100%) and the decrypted data
-            emit(Pair(1.0f, decryptedData))
+        val buffer = ByteArray(8192)
+        var bytesRead: Int
+        var totalBytesRead = 0L
+        val totalBytes = try {
+            val available = inputStream.available()
+            if (available > 0) available.toLong() else -1L
+        } catch (e: Exception) {
+            -1L
         }
-    }
 
-    /**
-     * Generates a random salt to be used for key derivation.
-     *
-     * @return A 16-byte salt
-     */
-    private fun generateSalt(): ByteArray {
-        val salt = ByteArray(16)
-        SecureRandom().nextBytes(salt)
-        return salt
-    }
+        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+            val decryptedChunk = cipher.update(buffer, 0, bytesRead)
+            if (decryptedChunk != null) {
+                outputStream.write(decryptedChunk)
+            }
+            totalBytesRead += bytesRead
+            if (totalBytes > 0) {
+                emit(totalBytesRead.toFloat() / totalBytes.toFloat())
+            } else {
+                emit(-1f)
+            }
+        }
 
-    /**
-     * Generates a random initialization vector (IV).
-     *
-     * @return A 16-byte IV
-     */
+        val finalChunk = cipher.doFinal()
+        outputStream.write(finalChunk)
+        emit(1.0f)
+
+        outputStream.flush()
+    }.flowOn(Dispatchers.IO)
+
+
+
     private fun generateIv(): ByteArray {
         val iv = ByteArray(16)
         SecureRandom().nextBytes(iv)
         return iv
     }
 
-    /**
-     * Generates a secret key from the provided password and salt using PBKDF2WithHmacSHA256.
-     *
-     * @param password The user's password
-     * @param salt The salt for key derivation
-     * @param keySize The size of the key (in bits)
-     * @param iterations The number of iterations for PBKDF2
-     * @return A SecretKey derived from the password and salt
-     */
     private fun generateKeyFromPassword(password: String, salt: ByteArray, keySize: Int, iterations: Int): SecretKey {
         val keyFactory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
-        val keySpec = javax.crypto.spec.PBEKeySpec(password.toCharArray(), salt, iterations, keySize)
+        val keySpec = PBEKeySpec(password.toCharArray(), salt, iterations, keySize)
         val key = keyFactory.generateSecret(keySpec)
         return SecretKeySpec(key.encoded, "AES")
     }
