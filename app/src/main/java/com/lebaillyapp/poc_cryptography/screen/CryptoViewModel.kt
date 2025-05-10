@@ -1,18 +1,17 @@
 package com.lebaillyapp.poc_cryptography.screen
 
-import android.app.Application
 import android.content.Context
 import android.net.Uri
 import android.os.Environment
-import android.provider.MediaStore
+import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lebaillyapp.poc_cryptography.data.repository.CryptoRepository
 import com.lebaillyapp.poc_cryptography.model.CryptoConfig
+import com.lebaillyapp.poc_cryptography.model.SAFFile
 import com.lebaillyapp.poc_cryptography.model.SelectedFile
-import dagger.hilt.android.internal.Contexts.getApplication
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -428,6 +427,64 @@ class CryptoViewModel @Inject constructor(
             }
         }
     }
+
+
+
+
+
+    private val _files = MutableStateFlow<List<SAFFile>>(emptyList())
+    val files: StateFlow<List<SAFFile>> = _files
+
+    fun loadEncryptedFiles(baseUri: Uri?, context: Context) {
+        if (baseUri == null) {
+            Log.w("CryptoViewModel", "URI null : impossible de charger les fichiers.")
+            return
+        }
+
+        val contentResolver = context.contentResolver
+        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
+            baseUri,
+            DocumentsContract.getTreeDocumentId(baseUri)
+        )
+
+        try {
+            _files.value = emptyList()
+
+            contentResolver.query(
+                childrenUri,
+                arrayOf(
+                    DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                    DocumentsContract.Document.COLUMN_SIZE,
+                    DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                    DocumentsContract.Document.COLUMN_MIME_TYPE
+                ),
+                null,
+                null,
+                null
+            )?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    val name = cursor.getString(0)
+                    val size = cursor.getLong(1)
+                    val documentId = cursor.getString(2)
+                    val mimeType = cursor.getString(3)
+
+                    // On ignore les dossiers
+                    if (mimeType == DocumentsContract.Document.MIME_TYPE_DIR) continue
+
+                    val fileUri = DocumentsContract.buildDocumentUriUsingTree(baseUri, documentId)
+                    _files.value += SAFFile(name, size, fileUri)
+                }
+            }
+
+        } catch (e: Exception) {
+            Log.e("CryptoViewModel", "Erreur SAF : ${e.message}", e)
+        }
+    }
+
+
+
+
+
 }
 
 // Extension pour convertir ByteArray en String Hex
