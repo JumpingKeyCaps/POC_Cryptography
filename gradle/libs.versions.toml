@@ -11,6 +11,7 @@ composeBom = "2024.12.01"
 hiltAndroid = "2.51.1"
 hiltNavigationFragment = "1.2.0"
 kotlinxCoroutinesAndroid = "1.8.0"
+documentfile = "1.1.0"
 
 
 [libraries]
@@ -33,6 +34,7 @@ androidx-hilt-navigation-fragment = { module = "androidx.hilt:hilt-navigation-fr
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hiltAndroid" }
 hilt-android-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hiltAndroid" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
+androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 
 
 [plugins]
