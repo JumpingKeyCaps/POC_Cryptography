@@ -23,8 +23,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.lebaillyapp.poc_cryptography.R
 import com.lebaillyapp.poc_cryptography.screen.CryptoViewModel
 
 /**
@@ -105,16 +107,16 @@ fun EncryptionDecryptionScreen(
                 actions = {
                     // Icônes de la barre inférieure (actuellement sans actions)
                     IconButton(onClick = { /* do something */ }) {
-                        Icon(Icons.Filled.Check, tint = iconGlobalTintColor, contentDescription = "Localized description")
+                        Icon(painterResource(R.drawable.key_vertical_24px), tint = iconGlobalTintColor, contentDescription = "Localized description")
                     }
                     IconButton(onClick = { /* do something */ }) {
-                        Icon(Icons.Filled.Edit, tint = iconGlobalTintColor, contentDescription = "Localized description")
+                        Icon(painterResource(R.drawable.folder_zip_24px), tint = iconGlobalTintColor, contentDescription = "Localized description")
                     }
                     IconButton(onClick = { /* do something */ }) {
-                        Icon(Icons.Filled.Face, tint = iconGlobalTintColor, contentDescription = "Localized description")
+                        Icon(painterResource(R.drawable.password_24px), tint = iconGlobalTintColor, contentDescription = "Localized description")
                     }
                     IconButton(onClick = { /* do something */ }) {
-                        Icon(Icons.Filled.Person, tint = iconGlobalTintColor, contentDescription = "Localized description")
+                        Icon(painterResource(R.drawable.laps_24px), tint = iconGlobalTintColor, contentDescription = "Localized description")
                     }
                 },
                 floatingActionButton = {
@@ -124,7 +126,7 @@ fun EncryptionDecryptionScreen(
                         containerColor = fabBackgroundColor,
                         elevation = FloatingActionButtonDefaults.bottomAppBarFabElevation()
                     ) {
-                        Icon(Icons.Filled.Add, "Localized description", tint = iconGlobalTintColor)
+                        Icon(painterResource(R.drawable.encrypted_24px), "Localized description", tint = iconGlobalTintColor)
                     }
                 }
             )
@@ -147,7 +149,7 @@ fun EncryptionDecryptionScreen(
                     )
                 },
                 leadingIcon = {
-                    Icon(Icons.Default.Check, contentDescription = null)
+                    Icon(painterResource(R.drawable.folder_supervised_24px), contentDescription = null)
                 },
                 modifier = Modifier
                     .padding(8.dp)
@@ -167,7 +169,7 @@ fun EncryptionDecryptionScreen(
                         supportingContent = { Text("${file.size} bytes") },
                         leadingContent = {
                             Icon(
-                                imageVector = Icons.Rounded.Info,
+                                painterResource(R.drawable.draft_24px),
                                 contentDescription = null
                             )
                         }
