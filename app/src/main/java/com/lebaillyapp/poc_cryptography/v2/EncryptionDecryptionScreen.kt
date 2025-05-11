@@ -142,7 +142,7 @@ fun EncryptionDecryptionScreen(
                 onClick = { onRequestDirectorySelection() },
                 label = {
                     Text(
-                        text = encryptedDirUri?.lastPathSegment?: "No directory selected",
+                        text = encryptedDirUri?.lastPathSegment ?: "No directory selected",
                         style = MaterialTheme.typography.labelSmall
                     )
                 },
@@ -154,20 +154,20 @@ fun EncryptionDecryptionScreen(
                     .align(Alignment.CenterHorizontally)
             )
 
-            // Liste des fichiers chiffrés
+
             LazyColumn(
-                modifier = Modifier
-                    .padding(innerPadding)
-                    .fillMaxSize()
+                modifier = Modifier.fillMaxSize()
             ) {
-                items(files) { file ->
-                    // Affichage de chaque fichier avec son nom et sa taille
+                items(
+                    items = files,
+                    key = { it.uri.toString() } // Optimisation des recompositions
+                ) { file ->
                     ListItem(
                         headlineContent = { Text(file.name) },
                         supportingContent = { Text("${file.size} bytes") },
                         leadingContent = {
                             Icon(
-                                Icons.Rounded.Info,
+                                imageVector = Icons.Rounded.Info,
                                 contentDescription = null
                             )
                         }
@@ -175,7 +175,6 @@ fun EncryptionDecryptionScreen(
                     Divider()
                 }
 
-                // Si aucun fichier n'est trouvé
                 if (files.isEmpty()) {
                     item {
                         Text(
@@ -188,8 +187,8 @@ fun EncryptionDecryptionScreen(
                     }
                 }
             }
-        }
 
+        }
 
     }
 }
