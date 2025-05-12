@@ -107,7 +107,10 @@ class MainActivity : ComponentActivity() {
         // Chargement de l’UI principale avec Jetpack Compose
         setContent {
             POC_CryptographyTheme {
+                //top/bottom bar colors
                 window.navigationBarColor = gunMetal.toArgb()
+                window.statusBarColor = Color.Transparent.toArgb()
+
 
                 // Si aucun dossier de sauvegarde n'est configuré, demander à l'utilisateur de le sélectionner
                 if (!storagePrefs.hasEncryptedDirUri()) {
@@ -116,7 +119,7 @@ class MainActivity : ComponentActivity() {
 
                 EncryptionDecryptionScreen(
                     onRequestDirectorySelection = { launchDirectorySelection() },
-                    bottomAppBarBackgroundColor = gunMetal,
+                    appBarBackgroundColor = gunMetal,
                     fabBackgroundColor = chartreuse,
                     iconGlobalTintColor = Color.White,
                     storagePrefs = storagePrefs
@@ -177,6 +180,12 @@ class MainActivity : ComponentActivity() {
      */
     private fun initAppColorUI(window: android.view.Window) {
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightNavigationBars = false
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+
+        // Force texte  sur la status bar
+        controller.isAppearanceLightStatusBars = true
+
+        // Force texte  sur la nav bar
+        controller.isAppearanceLightNavigationBars = false
     }
 }
