@@ -1,11 +1,16 @@
 package com.lebaillyapp.poc_cryptography.screen
 
 import android.content.Context
+import android.database.Cursor
 import android.net.Uri
 import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.util.Log
+import androidx.compose.runtime.mutableStateOf
+import androidx.core.database.getIntOrNull
+import androidx.core.database.getLongOrNull
+import androidx.core.database.getStringOrNull
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lebaillyapp.poc_cryptography.data.repository.CryptoRepository
@@ -168,6 +173,31 @@ class CryptoViewModel @Inject constructor(
         } else {
             _generatedSalt.value = null
             _generatedHash.value = null
+        }
+    }
+
+
+
+    private val _selectedUris = MutableStateFlow<Set<Uri>>(emptySet())
+    val selectedUris: MutableStateFlow<Set<Uri>> = _selectedUris
+
+    private val _expandedUris = MutableStateFlow<Set<Uri>>(emptySet())
+    val expandedUris: MutableStateFlow<Set<Uri>> = _expandedUris
+
+
+    fun toggleFileSelection(uri: Uri) {
+        _selectedUris.value = if (_selectedUris.value.contains(uri)) {
+            _selectedUris.value - uri
+        } else {
+            _selectedUris.value + uri
+        }
+    }
+
+    fun toggleExpand(uri: Uri) {
+        _expandedUris.value = if (_expandedUris.value.contains(uri)) {
+            _expandedUris.value - uri
+        } else {
+            _expandedUris.value + uri
         }
     }
 
@@ -435,7 +465,12 @@ class CryptoViewModel @Inject constructor(
     private val _files = MutableStateFlow<List<SAFFile>>(emptyList())
     val files: StateFlow<List<SAFFile>> = _files
 
-    fun loadEncryptedFiles(baseUri: Uri?, context: Context) {
+    /**
+     * Method to load files from a given base URI directory.
+     * @param baseUri The base URI of the directory to load files from.
+     * @param context The application context.
+     */
+    fun loadDirectoryFiles(baseUri: Uri?, context: Context) {
         if (baseUri == null) {
             Log.w("CryptoViewModel", "URI null : impossible de charger les fichiers.")
             return
@@ -448,33 +483,69 @@ class CryptoViewModel @Inject constructor(
         )
 
         try {
-            _files.value = emptyList()
+            val resultList = mutableListOf<SAFFile>()
 
-            contentResolver.query(
-                childrenUri,
-                arrayOf(
-                    DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                    DocumentsContract.Document.COLUMN_SIZE,
-                    DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                    DocumentsContract.Document.COLUMN_MIME_TYPE
-                ),
-                null,
-                null,
-                null
-            )?.use { cursor ->
+            val projection = arrayOf(
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_SIZE,
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_MIME_TYPE,
+                DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+                DocumentsContract.Document.COLUMN_FLAGS,
+                DocumentsContract.Document.COLUMN_SUMMARY
+            )
+
+            contentResolver.query(childrenUri, projection, null, null, null)?.use { cursor ->
                 while (cursor.moveToNext()) {
-                    val name = cursor.getString(0)
-                    val size = cursor.getLong(1)
-                    val documentId = cursor.getString(2)
-                    val mimeType = cursor.getString(3)
+                    val name = cursor.getStringOrNull(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                    val size = cursor.getLongOrNull(DocumentsContract.Document.COLUMN_SIZE)
+                    val documentId = cursor.getStringOrNull(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                    val mimeType = cursor.getStringOrNull(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                    val lastModified = cursor.getLongOrNull(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+                    val flags = cursor.getIntOrNull(DocumentsContract.Document.COLUMN_FLAGS)
+                    val summary = cursor.getStringOrNull(DocumentsContract.Document.COLUMN_SUMMARY)
+
+                    // Vérification minimale
+                    if (documentId == null || name == null) continue
 
                     // On ignore les dossiers
                     if (mimeType == DocumentsContract.Document.MIME_TYPE_DIR) continue
 
                     val fileUri = DocumentsContract.buildDocumentUriUsingTree(baseUri, documentId)
-                    _files.value += SAFFile(name, size, fileUri)
+
+                    val isVirtual = flags?.let {
+                        it and DocumentsContract.Document.FLAG_VIRTUAL_DOCUMENT != 0
+                    }
+
+                    val isWritable = flags?.let {
+                        it and DocumentsContract.Document.FLAG_SUPPORTS_WRITE != 0
+                    }
+
+                    val isDeletable = flags?.let {
+                        it and DocumentsContract.Document.FLAG_SUPPORTS_DELETE != 0
+                    }
+
+                    val isDirectory = mimeType == DocumentsContract.Document.MIME_TYPE_DIR
+
+                    resultList.add(
+                        SAFFile(
+                            name = name,
+                            size = size,
+                            uri = fileUri,
+                            mimeType = mimeType,
+                            lastModified = lastModified,
+                            isVirtual = isVirtual,
+                            isWritable = isWritable,
+                            isDeletable = isDeletable,
+                            isDirectory = isDirectory,
+                            documentId = documentId,
+                            summary = summary
+                        )
+                    )
                 }
             }
+
+            _files.value = resultList
 
         } catch (e: Exception) {
             Log.e("CryptoViewModel", "Erreur SAF : ${e.message}", e)
@@ -486,6 +557,23 @@ class CryptoViewModel @Inject constructor(
 
 
 }
+
+fun Cursor.getStringOrNull(column: String): String? {
+    val index = getColumnIndex(column)
+    return if (index != -1 && !isNull(index)) getString(index) else null
+}
+
+fun Cursor.getLongOrNull(column: String): Long? {
+    val index = getColumnIndex(column)
+    return if (index != -1 && !isNull(index)) getLong(index) else null
+}
+
+fun Cursor.getIntOrNull(column: String): Int? {
+    val index = getColumnIndex(column)
+    return if (index != -1 && !isNull(index)) getInt(index) else null
+}
+
+
 
 // Extension pour convertir ByteArray en String Hex
 fun ByteArray.toHexString() = joinToString("") { "%02x".format(it) }
