@@ -1,16 +1,18 @@
 package com.lebaillyapp.poc_cryptography.v2
 
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Face
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.rounded.Info
+import androidx.compose.foundation.shape.RoundedCornerShape
+
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -21,10 +23,19 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.lerp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lebaillyapp.poc_cryptography.R
 import com.lebaillyapp.poc_cryptography.screen.CryptoViewModel
@@ -69,128 +80,236 @@ import com.lebaillyapp.poc_cryptography.screen.CryptoViewModel
  * Le sélecteur de dossier SAF est déclenché par le `AssistChip` et le résultat est affiché dans le label du chip.
  * Les actions de la `BottomAppBar` n'ont pas encore de comportement défini (`IconButton` vide pour l'instant).
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EncryptionDecryptionScreen(
-    modifier: Modifier = Modifier,
     onRequestDirectorySelection: () -> Unit,
-    bottomAppBarBackgroundColor: Color = MaterialTheme.colorScheme.secondaryContainer,
+    appBarBackgroundColor: Color = MaterialTheme.colorScheme.secondaryContainer,
     fabBackgroundColor: Color = MaterialTheme.colorScheme.primary,
     iconGlobalTintColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
     storagePrefs: StoragePrefs,
     viewModel: CryptoViewModel = hiltViewModel()
 ) {
-
-    // Récupérer le contexte et les préférences de stockage
     val context = LocalContext.current
-
-
-
-    // URI du dossier sélectionné et la liste des fichiers
     val encryptedDirUri by storagePrefs.encryptedDirUriFlow.collectAsState()
     val files by viewModel.files.collectAsState()
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
-    // Charger les fichiers chiffrés après un délai de 3 secondes pour simuler le démarrage
     LaunchedEffect(encryptedDirUri) {
         encryptedDirUri?.let {
-            viewModel.loadEncryptedFiles(it, context)
+            viewModel.loadDirectoryFiles(it, context)
         }
     }
 
-
-    // Structure principale avec Scaffold (qui inclut une BottomAppBar et un FloatingActionButton)
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            val collapsedFraction = scrollBehavior.state.collapsedFraction
+            val elevation by animateDpAsState(
+                targetValue = lerp(0.dp, 4.dp, collapsedFraction),
+                label = "AppBarElevation"
+            )
+            val showTitle = collapsedFraction > 0.95f
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(elevation, shape = MaterialTheme.shapes.medium)
+            ) {
+                LargeTopAppBar(
+                    title = {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 0.dp),
+                        ) {
+                            AnimatedVisibility(
+                                visible = collapsedFraction < 0.3f,
+                                enter = fadeIn(animationSpec = tween(300)) + scaleIn(
+                                    animationSpec = tween(500),
+                                    initialScale = 0.95f
+                                ),
+                                exit = fadeOut(animationSpec = tween(200)) + scaleOut(
+                                    animationSpec = tween(300),
+                                    targetScale = 0.95f
+                                )
+                            ) {
+                                Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+
+                                    Image(
+                                        painter = painterResource(R.drawable.doodle_two),
+                                        contentDescription = "Zencrypt Logo",
+                                        modifier = Modifier
+                                            .size(150.dp),
+                                        contentScale = ContentScale.Fit
+                                    )
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                    Text(
+                                        text = "Secure your files with symmetric encryption",
+                                        fontFamily = FontFamily(Font(R.font.jura_medium)),
+                                        fontSize = 16.sp,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                                    )
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                    Text(
+                                        text = "Select one or more files to encrypt/decrypt",
+                                        fontSize = 15.sp,
+                                        fontFamily = FontFamily(Font(R.font.jura_regular)),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                    AssistChip(
+                                        modifier = Modifier.padding(16.dp),
+                                        onClick = onRequestDirectorySelection,
+                                        label = {
+                                            Text(
+                                                text = encryptedDirUri?.lastPathSegment ?: "No directory selected",
+                                                style = MaterialTheme.typography.labelSmall
+                                            )
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                painterResource(R.drawable.folder_supervised_24px),
+                                                contentDescription = null
+                                            )
+                                        },
+                                        shape = MaterialTheme.shapes.small,
+                                        border = AssistChipDefaults.assistChipBorder(false)
+                                    )
+
+
+                                }
+                            }
+
+                            if (showTitle) {
+                                Text(
+                                    text = "Zencrypt",
+                                    fontFamily = FontFamily(Font(R.font.jura_bold, FontWeight.Bold)),
+                                    fontSize = 18.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.align(Alignment.CenterStart)
+
+                                )
+                            }
+                        }
+                    },
+                    scrollBehavior = scrollBehavior,
+                    colors = TopAppBarDefaults.largeTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        scrolledContainerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    actions = {},
+                    expandedHeight = 360.dp
+                )
+            }
+        },
         bottomBar = {
+            val elevation = 8.dp
             BottomAppBar(
-                containerColor = bottomAppBarBackgroundColor,
+                containerColor = appBarBackgroundColor,
                 tonalElevation = 3.dp,
+                modifier = Modifier
+                    .shadow(elevation, shape = RoundedCornerShape(0.dp)),
                 actions = {
-                    // Icônes de la barre inférieure (actuellement sans actions)
-                    IconButton(onClick = { /* do something */ }) {
-                        Icon(painterResource(R.drawable.key_vertical_24px), tint = iconGlobalTintColor, contentDescription = "Localized description")
+                    IconButton(onClick = { }) {
+                        Icon(painterResource(R.drawable.key_vertical_24px), tint = iconGlobalTintColor, contentDescription = null)
                     }
-                    IconButton(onClick = { /* do something */ }) {
-                        Icon(painterResource(R.drawable.folder_zip_24px), tint = iconGlobalTintColor, contentDescription = "Localized description")
+                    IconButton(onClick = { }) {
+                        Icon(painterResource(R.drawable.laps_24px), tint = iconGlobalTintColor, contentDescription = null)
                     }
-                    IconButton(onClick = { /* do something */ }) {
-                        Icon(painterResource(R.drawable.password_24px), tint = iconGlobalTintColor, contentDescription = "Localized description")
+                    IconButton(onClick = { }) {
+                        Icon(painterResource(R.drawable.password_24px), tint = iconGlobalTintColor, contentDescription = null)
                     }
-                    IconButton(onClick = { /* do something */ }) {
-                        Icon(painterResource(R.drawable.laps_24px), tint = iconGlobalTintColor, contentDescription = "Localized description")
+
+                    IconButton(onClick = { }) {
+                        Icon(painterResource(R.drawable.folder_zip_24px), tint = iconGlobalTintColor, contentDescription = null)
                     }
                 },
                 floatingActionButton = {
-                    // Bouton flottant d'ajout
                     FloatingActionButton(
-                        onClick = { /* do something */ },
+                        onClick = { },
                         containerColor = fabBackgroundColor,
                         elevation = FloatingActionButtonDefaults.bottomAppBarFabElevation()
                     ) {
-                        Icon(painterResource(R.drawable.encrypted_24px), "Localized description", tint = iconGlobalTintColor)
+                        Icon(painterResource(R.drawable.encrypted_24px), contentDescription = null, tint = iconGlobalTintColor)
                     }
                 }
             )
         }
     ) { innerPadding ->
-
-        // Contenu principal de l'écran
-        Column(
+        LazyColumn(
             modifier = Modifier
-                .padding(innerPadding)
                 .fillMaxSize()
+                .padding(innerPadding),
+            contentPadding = PaddingValues(bottom = 0.dp)
         ) {
-            // Chip pour sélectionner un dossier de stockage
-            AssistChip(
-                onClick = { onRequestDirectorySelection() },
-                label = {
+
+            item {
+                Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment  = Alignment.CenterHorizontally) {
+
+
                     Text(
-                        text = encryptedDirUri?.lastPathSegment ?: "No directory selected",
-                        style = MaterialTheme.typography.labelSmall
+                        text = "${files.size} files in this directory.",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontFamily = FontFamily(Font(R.font.jura_bold, FontWeight.Bold)),
+                        fontSize = 16.sp,
+                        modifier = Modifier.align(Alignment.Start).padding(start = 16.dp,top = 16.dp),
+                        color = appBarBackgroundColor
                     )
-                },
-                leadingIcon = {
-                    Icon(painterResource(R.drawable.folder_supervised_24px), contentDescription = null)
-                },
-                modifier = Modifier
-                    .padding(8.dp)
-                    .align(Alignment.CenterHorizontally)
-            )
 
-
-            LazyColumn(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(
-                    items = files,
-                    key = { it.uri.toString() } // Optimisation des recompositions
-                ) { file ->
-                    ListItem(
-                        headlineContent = { Text(file.name) },
-                        supportingContent = { Text("${file.size} bytes") },
-                        leadingContent = {
-                            Icon(
-                                painterResource(R.drawable.draft_24px),
-                                contentDescription = null
-                            )
-                        }
-                    )
-                    Divider()
                 }
 
-                if (files.isEmpty()) {
-                    item {
-                        Text(
-                            text = "Aucun fichier trouvé.",
-                            modifier = Modifier
-                                .padding(16.dp)
-                                .fillMaxWidth(),
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
+                Spacer(modifier = Modifier.height(12.dp))
             }
 
-        }
+            items(
+                items = files,
+                key = { it.uri.toString() }
+            ) { file ->
+                val isSelected = viewModel.selectedUris.collectAsState().value.contains(file.uri)
+                val isExpanded = viewModel.expandedUris.collectAsState().value.contains(file.uri)
 
+                SAFFileItem(
+                    file = file,
+                    isSelected = isSelected,
+                    isExpanded = isExpanded,
+                    progress = 0.0f, //progressMap[file.uri] ?: 0f,
+                    onClick = {
+                        viewModel.toggleFileSelection(file.uri)
+                    },
+                    onEncryptDecryptClick = {
+                       // launchMockEncryption(file)
+                    },
+                    onExpandClick = {
+                        viewModel.toggleExpand(file.uri)
+                    }
+                )
+                Divider()
+            }
+
+            if (files.isEmpty()) {
+                item {
+                    Text(
+                        text = "Aucun fichier trouvé.",
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
     }
 }
+
+
+
+
+
+
+
+
+
