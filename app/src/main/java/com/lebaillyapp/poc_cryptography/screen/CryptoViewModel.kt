@@ -7,16 +7,13 @@ import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.util.Log
-import androidx.compose.runtime.mutableStateOf
-import androidx.core.database.getIntOrNull
-import androidx.core.database.getLongOrNull
-import androidx.core.database.getStringOrNull
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lebaillyapp.poc_cryptography.data.repository.CryptoRepository
 import com.lebaillyapp.poc_cryptography.model.CryptoConfig
 import com.lebaillyapp.poc_cryptography.model.SAFFile
 import com.lebaillyapp.poc_cryptography.model.SelectedFile
+import com.lebaillyapp.poc_cryptography.v2.BottomDialogState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +22,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
-import java.security.SecureRandom
 import javax.inject.Inject
 import kotlin.random.Random
 
@@ -201,6 +197,18 @@ class CryptoViewModel @Inject constructor(
         }
     }
 
+
+    //dialogs
+    private val _dialogState = MutableStateFlow<BottomDialogState>(BottomDialogState.None)
+    val dialogState: StateFlow<BottomDialogState> = _dialogState
+
+    fun showDialog(state: BottomDialogState) {
+        _dialogState.value = state
+    }
+
+    fun dismissDialog() {
+        _dialogState.value = BottomDialogState.None
+    }
 
 
     /**
