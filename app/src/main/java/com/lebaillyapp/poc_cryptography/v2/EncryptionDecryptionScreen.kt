@@ -1,5 +1,7 @@
 package com.lebaillyapp.poc_cryptography.v2
 
+import android.net.Uri
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -7,7 +9,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,6 +28,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -42,6 +44,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.lebaillyapp.poc_cryptography.R
 import com.lebaillyapp.poc_cryptography.screen.CryptoViewModel
 import com.lebaillyapp.poc_cryptography.screen.formatIterations
@@ -96,19 +100,26 @@ fun EncryptionDecryptionScreen(
     appBarBackgroundColor: Color = MaterialTheme.colorScheme.secondaryContainer,
     fabBackgroundColor: Color = MaterialTheme.colorScheme.primary,
     iconGlobalTintColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
-    storagePrefs: StoragePrefs,
-    viewModel: CryptoViewModel = hiltViewModel()
+    currentDirectoryUri: Uri?,
+    viewModel: CryptoViewModelV2 = hiltViewModel()
 ) {
     val context = LocalContext.current
-    val encryptedDirUri by storagePrefs.encryptedDirUriFlow.collectAsState()
+
     val files by viewModel.files.collectAsState()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val defaultConfig by viewModel.defaultConfig.collectAsState()
     val dialogState by viewModel.dialogState.collectAsState()
 
+    val selectedUris by viewModel.selectedUris.collectAsState()
+    val expandedUris by viewModel.expandedUris.collectAsState()
 
-    LaunchedEffect(encryptedDirUri) {
-        encryptedDirUri?.let {
+    val fileProgressMap by viewModel.fileProgressMap.collectAsState()
+
+
+    LaunchedEffect(currentDirectoryUri) {
+        Log.d("deeeb", "launchedeffect called ! ")
+        currentDirectoryUri?.let {
+            Log.d("deeeb", "new dossier uri: ${it.toString()}")
             viewModel.loadDirectoryFiles(it, context)
         }
     }
@@ -148,13 +159,18 @@ fun EncryptionDecryptionScreen(
                             ) {
                                 Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
 
-                                    Image(
-                                        painter = painterResource(R.drawable.doodle_two),
-                                        contentDescription = "Zencrypt Logo",
-                                        modifier = Modifier
-                                            .size(150.dp),
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(R.drawable.doodle_two)
+                                            .size(110)
+                                            .build(),
+                                        contentDescription = "doodle image",
+                                        modifier = Modifier.size(150.dp),
                                         contentScale = ContentScale.Fit
                                     )
+
+
+
                                     Spacer(modifier = Modifier.height(3.dp))
                                     Text(
                                         text = "Secure your files with symmetric encryption",
@@ -178,7 +194,7 @@ fun EncryptionDecryptionScreen(
                                         onClick = onRequestDirectorySelection,
                                         label = {
                                             Text(
-                                                text = encryptedDirUri?.lastPathSegment ?: "No directory selected",
+                                                text = currentDirectoryUri?.lastPathSegment ?: "No directory selected",
                                                 style = MaterialTheme.typography.labelSmall
                                             )
                                         },
@@ -270,8 +286,9 @@ fun EncryptionDecryptionScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontFamily = FontFamily(Font(R.font.jura_bold, FontWeight.Bold)),
                         fontSize = 16.sp,
-                        modifier = Modifier.align(Alignment.Start).padding(start = 16.dp,top = 16.dp),
-                        color = appBarBackgroundColor
+                        modifier = Modifier
+                            .align(Alignment.Start)
+                            .padding(start = 16.dp, top = 16.dp),
                     )
 
                 }
@@ -280,22 +297,26 @@ fun EncryptionDecryptionScreen(
             }
 
             items(
-                items = files,
+                items = files.sortedBy { it.name.lowercase() },
                 key = { it.uri.toString() }
             ) { file ->
-                val isSelected = viewModel.selectedUris.collectAsState().value.contains(file.uri)
-                val isExpanded = viewModel.expandedUris.collectAsState().value.contains(file.uri)
+                val isSelected = selectedUris.contains(file.uri)
+                val isExpanded = expandedUris.contains(file.uri)
 
                 SAFFileItem(
                     file = file,
                     isSelected = isSelected,
                     isExpanded = isExpanded,
-                    progress = 0.0f, //progressMap[file.uri] ?: 0f,
+                    progress = fileProgressMap[file.uri] ?: 0f,
                     onClick = {
                         viewModel.toggleFileSelection(file.uri)
                     },
                     onEncryptDecryptClick = {
-                       // launchMockEncryption(file)
+
+                        val newConfig = viewModel.defaultConfig.value.copy(password = "demotest")
+                        viewModel.updateConfig(newConfig)
+
+                        viewModel.encryptSingleFile(context,file.uri, currentDirectoryUri!!)
                     },
                     onExpandClick = {
                         viewModel.toggleExpand(file.uri)
@@ -387,7 +408,10 @@ fun EncryptionDecryptionScreen(
                                     val newConfig = viewModel.defaultConfig.value.copy(mode = 1)
                                     viewModel.updateConfig(newConfig)
                                 },
-                                modifier = Modifier.align(Alignment.CenterHorizontally).padding(start = 30.dp, end = 30.dp).fillMaxWidth()
+                                modifier = Modifier
+                                    .align(Alignment.CenterHorizontally)
+                                    .padding(start = 30.dp, end = 30.dp)
+                                    .fillMaxWidth()
                             ) {
                                 Text("CBC + PKCS5 padding")
                             }
@@ -399,7 +423,10 @@ fun EncryptionDecryptionScreen(
                                     val newConfig = viewModel.defaultConfig.value.copy(mode = 2)
                                     viewModel.updateConfig(newConfig)
                                 },
-                                modifier = Modifier.align(Alignment.CenterHorizontally).padding(start = 30.dp, end = 30.dp).fillMaxWidth()
+                                modifier = Modifier
+                                    .align(Alignment.CenterHorizontally)
+                                    .padding(start = 30.dp, end = 30.dp)
+                                    .fillMaxWidth()
                             ) {
                                 Text("GCM + No padding ")
                             }
@@ -411,7 +438,10 @@ fun EncryptionDecryptionScreen(
                                     val newConfig = viewModel.defaultConfig.value.copy(mode = 3)
                                     viewModel.updateConfig(newConfig)
                                 },
-                                modifier = Modifier.align(Alignment.CenterHorizontally).padding(start = 30.dp, end = 30.dp).fillMaxWidth()
+                                modifier = Modifier
+                                    .align(Alignment.CenterHorizontally)
+                                    .padding(start = 30.dp, end = 30.dp)
+                                    .fillMaxWidth()
                             ) {
                                 Text("CTR + No padding")
                             }
@@ -584,7 +614,10 @@ fun EncryptionDecryptionScreen(
                                     val newConfig = viewModel.defaultConfig.value.copy(keySize = 128)
                                     viewModel.updateConfig(newConfig)
                                 },
-                                modifier = Modifier.align(Alignment.CenterHorizontally).padding(start = 30.dp, end = 30.dp).fillMaxWidth()
+                                modifier = Modifier
+                                    .align(Alignment.CenterHorizontally)
+                                    .padding(start = 30.dp, end = 30.dp)
+                                    .fillMaxWidth()
                             ) {
                                 Text("128 bits")
                             }
@@ -596,7 +629,10 @@ fun EncryptionDecryptionScreen(
                                     val newConfig = viewModel.defaultConfig.value.copy(keySize = 192)
                                     viewModel.updateConfig(newConfig)
                                 },
-                                modifier = Modifier.align(Alignment.CenterHorizontally).padding(start = 30.dp, end = 30.dp).fillMaxWidth()
+                                modifier = Modifier
+                                    .align(Alignment.CenterHorizontally)
+                                    .padding(start = 30.dp, end = 30.dp)
+                                    .fillMaxWidth()
                             ) {
                                 Text("192 bits")
                             }
@@ -608,7 +644,10 @@ fun EncryptionDecryptionScreen(
                                     val newConfig = viewModel.defaultConfig.value.copy(keySize = 256)
                                     viewModel.updateConfig(newConfig)
                                 },
-                                modifier = Modifier.align(Alignment.CenterHorizontally).padding(start = 30.dp, end = 30.dp).fillMaxWidth()
+                                modifier = Modifier
+                                    .align(Alignment.CenterHorizontally)
+                                    .padding(start = 30.dp, end = 30.dp)
+                                    .fillMaxWidth()
                             ) {
                                 Text("256 bits")
                             }
