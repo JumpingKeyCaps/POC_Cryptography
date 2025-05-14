@@ -17,6 +17,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,6 +68,10 @@ class MainActivity : ComponentActivity() {
     private lateinit var storagePrefs: StoragePrefs
     private lateinit var openDocumentTreeLauncher: ActivityResultLauncher<Intent>
 
+    private val _currentDirUri = mutableStateOf<Uri?>(null)
+    val currentDirUri: State<Uri?> get() = _currentDirUri
+
+
     private val requestFlags =
         Intent.FLAG_GRANT_READ_URI_PERMISSION or
                 Intent.FLAG_GRANT_WRITE_URI_PERMISSION
@@ -100,9 +105,12 @@ class MainActivity : ComponentActivity() {
                         requestFlags
                     )
                     storagePrefs.saveEncryptedDirUri(uri)
+                    _currentDirUri.value = storagePrefs.getEncryptedDirUri()
                 }
             }
         }
+
+        _currentDirUri.value = storagePrefs.getEncryptedDirUri()
 
         // Chargement de l’UI principale avec Jetpack Compose
         setContent {
@@ -122,7 +130,7 @@ class MainActivity : ComponentActivity() {
                     appBarBackgroundColor = gunMetal,
                     fabBackgroundColor = chartreuse,
                     iconGlobalTintColor = Color.White,
-                    storagePrefs = storagePrefs
+                    currentDirectoryUri = currentDirUri.value
                 )
             }
         }
