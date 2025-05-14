@@ -180,7 +180,7 @@ class CryptoViewModel @Inject constructor(
     private val _expandedUris = MutableStateFlow<Set<Uri>>(emptySet())
     val expandedUris: MutableStateFlow<Set<Uri>> = _expandedUris
 
-
+    //multi selection
     fun toggleFileSelection(uri: Uri) {
         _selectedUris.value = if (_selectedUris.value.contains(uri)) {
             _selectedUris.value - uri
