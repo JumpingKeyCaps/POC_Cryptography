@@ -82,11 +82,24 @@ fun SAFFileItem(
                         )
                     }
                     else -> {
-                        Text(
-                            text = file.name.substringAfterLast('.'),
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Bold,
-                        )
+
+                        if(file.name.substringAfterLast('.') == "crypt"){
+                            //fichier crypter
+                            Icon(
+                                painterResource(R.drawable.shield_lock_24px),
+                                contentDescription = "Crypted",
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }else{
+                            Text(
+                                text = file.name.substringAfterLast('.'),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+
+
+
                     }
                 }
             }
