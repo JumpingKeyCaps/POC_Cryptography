@@ -2,6 +2,7 @@ package com.lebaillyapp.poc_cryptography.v2
 
 import android.net.Uri
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -14,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 
 import androidx.compose.material3.*
@@ -40,6 +42,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
@@ -312,11 +316,12 @@ fun EncryptionDecryptionScreen(
                         viewModel.toggleFileSelection(file.uri)
                     },
                     onEncryptDecryptClick = {
+                        if(viewModel.defaultConfig.value.password != ""){
+                            viewModel.encryptSingleFile(context,file.uri, currentDirectoryUri!!)
+                        }else{
+                            Toast.makeText(context, "Please enter a password to encrypt this file !", Toast.LENGTH_SHORT).show()
+                        }
 
-                        val newConfig = viewModel.defaultConfig.value.copy(password = "demotest")
-                        viewModel.updateConfig(newConfig)
-
-                        viewModel.encryptSingleFile(context,file.uri, currentDirectoryUri!!)
                     },
                     onExpandClick = {
                         viewModel.toggleExpand(file.uri)
@@ -328,7 +333,7 @@ fun EncryptionDecryptionScreen(
             if (files.isEmpty()) {
                 item {
                     Text(
-                        text = "Aucun fichier trouvé.",
+                        text = "No files found.",
                         modifier = Modifier
                             .padding(16.dp)
                             .fillMaxWidth(),
@@ -458,18 +463,46 @@ fun EncryptionDecryptionScreen(
             }
 
             BottomDialogState.PasswordKeySelector -> {
+                var password by remember { mutableStateOf("") }
                 AlertDialog(
                     onDismissRequest = { viewModel.dismissDialog() },
                     confirmButton = {
-                        TextButton(onClick = { viewModel.dismissDialog() }) {
-                            Text("Fermer")
+                        TextButton(
+                            onClick = {
+                                // Appliquer le mot de passe
+                                val newConfig = viewModel.defaultConfig.value.copy(password = password)
+                                viewModel.updateConfig(newConfig)
+                                viewModel.dismissDialog()
+                            }
+                        ) {
+                            Text("Apply")
                         }
                     },
-                    title = { Text("Paramètres") },
+                    dismissButton = {
+                        TextButton(onClick = { viewModel.dismissDialog() }) {
+                            Text("Close")
+                        }
+                    },
+                    title = { Text("Set an encryption password ") },
                     text = {
-                        Text("Paramètres à venir...")
+                        Column {
+                            Text(
+                                "Please enter a password to use for encryption.",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = password,
+                                onValueChange = { password = it },
+                                label = { Text("Password") },
+                                singleLine = true,
+                                visualTransformation = PasswordVisualTransformation(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                            )
+                        }
                     }
                 )
+
             }
             BottomDialogState.IVCountSelector -> {
                 AlertDialog(
