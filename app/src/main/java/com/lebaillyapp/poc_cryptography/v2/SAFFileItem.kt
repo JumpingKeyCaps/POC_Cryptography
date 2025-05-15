@@ -124,7 +124,15 @@ fun SAFFileItem(
 
             // Action chiffrement/déchiffrement
             IconButton(onClick = onEncryptDecryptClick) {
-                Icon(painterResource(R.drawable.no_encryption_24px), contentDescription = "Crypter", modifier = Modifier.size(18.dp))
+
+                if(file.name.substringAfterLast('.') == "crypt"){
+                    Icon(painterResource(R.drawable.lock_24px), contentDescription = "Crypted", modifier = Modifier.size(18.dp))
+
+                }else{
+                    Icon(painterResource(R.drawable.no_encryption_24px), contentDescription = "Uncrypted", modifier = Modifier.size(18.dp))
+
+                }
+
             }
 
             // Expand
