@@ -1,4 +1,8 @@
-# 🔐 File Encryption POC 📱
+<p align="center">
+  <img src="screenshot/logoo.png" alt="Logo" width="333" height="333">
+</p>
+
+# Zencrypt
 
 This **Proof of Concept (POC)** Android application demonstrates how to **securely encrypt and decrypt files** stored on a device using **symmetric encryption**.
 
@@ -67,6 +71,18 @@ The app leverages the **Storage Access Framework (SAF)** to let users select any
 
 ---
 
+## 📸 Screenshots
+
+| SAFFile selector | Encrypt a file | Decrypt a file  | Multi encrypt | 
+|:---:|:---:|:---:|:---:|
+| ![SAFFile](screenshot/saffileselector.gif) | ![Encrypt](screenshot/oneclicencrypt.gif) | ![Decrypt](screenshot/decryptoneclic.gif) | ![Multi](screenshot/multicrypte.gif) | 
+
+| Encrypt modes | Iteration KDF | AES key size | Password | 
+|:---:|:---:|:---:|:---:|
+| ![Modes](screenshot/ciphermode.gif) | ![KDF](screenshot/iterationvectorselector.gif) | ![AES](screenshot/bitsselector.gif) | ![Password](screenshot/passwordselector.gif) | 
+
+---
+
 ## 🏗️ Architecture Overview
 
 - **ViewModel**: Exposes UI state, handles user actions  
@@ -89,5 +105,9 @@ The app leverages the **Storage Access Framework (SAF)** to let users select any
 ![Language](https://img.shields.io/badge/kotlin-1.9-blueviolet?logo=kotlin&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-%F0%9F%8E%B6-blue?logo=android)
 ![Min SDK](https://img.shields.io/badge/minSDK-33-brightgreen)
+
+![Architecture](https://img.shields.io/badge/Architecture-MVVM-orange)
+![Dependency%20Injection](https://img.shields.io/badge/DI-Hilt-5e4adb?logo=dagger&logoColor=white)
+![Encryption](https://img.shields.io/badge/Crypto-AES256-red?logo=cryptography&logoColor=white)
 
 
