@@ -157,8 +157,8 @@ class MainActivity : ComponentActivity() {
         if (openDialog) {
             AlertDialog(
                 onDismissRequest = { /* L'utilisateur a fermé la boîte de dialogue, on le laisse fermer si nécessaire */ },
-                title = { Text(text = "Dossier de sauvegarde") },
-                text = { Text(text = "Veuillez choisir un dossier pour stocker vos fichiers chiffrés.") },
+                title = { Text(text = "Set Working Directory") },
+                text = { Text(text = "Please select the folder where Zencrypt will read and write your encrypted files.") },
                 confirmButton = {
                     TextButton(
                         onClick = {
@@ -166,7 +166,7 @@ class MainActivity : ComponentActivity() {
                             openDialog = false // Ferme le dialogue après l'action
                         }
                     ) {
-                        Text("Choisir")
+                        Text("Choose")
                     }
                 },
                 dismissButton = {
@@ -176,7 +176,7 @@ class MainActivity : ComponentActivity() {
                             openDialog = false
                         }
                     ) {
-                        Text("Annuler")
+                        Text("Cancel")
                     }
                 }
             )
