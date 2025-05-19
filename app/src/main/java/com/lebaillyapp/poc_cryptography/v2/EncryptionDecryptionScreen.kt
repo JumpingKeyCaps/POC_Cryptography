@@ -1,15 +1,12 @@
 package com.lebaillyapp.poc_cryptography.v2
 
+import android.content.Context
 import android.net.Uri
+import android.provider.OpenableColumns
 import android.util.Log
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
+import androidx.annotation.RestrictTo
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -30,14 +27,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -48,13 +43,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.lebaillyapp.poc_cryptography.R
-import com.lebaillyapp.poc_cryptography.screen.CryptoViewModel
 import com.lebaillyapp.poc_cryptography.screen.formatIterations
-import com.lebaillyapp.poc_cryptography.ui.theme.chartreuse
-import com.lebaillyapp.poc_cryptography.ui.theme.gunMetal
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
@@ -120,6 +111,20 @@ fun EncryptionDecryptionScreen(
     val fileProgressMap by viewModel.fileProgressMap.collectAsState()
 
 
+    val errorMessage by viewModel.errorMessage.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearErrorMessage()
+        }
+    }
+
+
+
     LaunchedEffect(currentDirectoryUri) {
         Log.d("deeeb", "launchedeffect called ! ")
         currentDirectoryUri?.let {
@@ -143,90 +148,15 @@ fun EncryptionDecryptionScreen(
                     .fillMaxWidth()
                     .shadow(elevation, shape = MaterialTheme.shapes.medium)
             ) {
-                LargeTopAppBar(
+                TopAppBar(
                     title = {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 0.dp),
-                        ) {
-                            AnimatedVisibility(
-                                visible = collapsedFraction < 0.3f,
-                                enter = fadeIn(animationSpec = tween(300)) + scaleIn(
-                                    animationSpec = tween(500),
-                                    initialScale = 0.95f
-                                ),
-                                exit = fadeOut(animationSpec = tween(200)) + scaleOut(
-                                    animationSpec = tween(300),
-                                    targetScale = 0.95f
-                                )
-                            ) {
-                                Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-
-                                    AsyncImage(
-                                        model = ImageRequest.Builder(LocalContext.current)
-                                            .data(R.drawable.doodle_two)
-                                            .size(110)
-                                            .build(),
-                                        contentDescription = "doodle image",
-                                        modifier = Modifier.size(150.dp),
-                                        contentScale = ContentScale.Fit
-                                    )
-
-
-
-                                    Spacer(modifier = Modifier.height(3.dp))
-                                    Text(
-                                        text = "Secure your files with symmetric encryption",
-                                        fontFamily = FontFamily(Font(R.font.jura_medium)),
-                                        fontSize = 16.sp,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                                    )
-                                    Spacer(modifier = Modifier.height(3.dp))
-                                    Text(
-                                        text = "Select one or more files to encrypt/decrypt",
-                                        fontSize = 15.sp,
-                                        fontFamily = FontFamily(Font(R.font.jura_regular)),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                                    )
-
-                                    Spacer(modifier = Modifier.height(3.dp))
-                                    AssistChip(
-                                        modifier = Modifier.padding(16.dp),
-                                        onClick = onRequestDirectorySelection,
-                                        label = {
-                                            Text(
-                                                text = currentDirectoryUri?.lastPathSegment ?: "No directory selected",
-                                                style = MaterialTheme.typography.labelSmall
-                                            )
-                                        },
-                                        leadingIcon = {
-                                            Icon(
-                                                painterResource(R.drawable.folder_supervised_24px),
-                                                contentDescription = null
-                                            )
-                                        },
-                                        shape = MaterialTheme.shapes.small,
-                                        border = AssistChipDefaults.assistChipBorder(false)
-                                    )
-
-
-                                }
-                            }
-
-                            if (showTitle) {
-                                Text(
-                                    text = "Zencrypt",
-                                    fontFamily = FontFamily(Font(R.font.jura_bold, FontWeight.Bold)),
-                                    fontSize = 18.sp,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.align(Alignment.CenterStart)
-
-                                )
-                            }
-                        }
+                        Text(
+                            text = "Zencrypt",
+                            fontFamily = FontFamily(Font(R.font.jura_bold, FontWeight.Bold)),
+                            fontSize = 23.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     },
                     scrollBehavior = scrollBehavior,
                     colors = TopAppBarDefaults.largeTopAppBarColors(
@@ -234,9 +164,11 @@ fun EncryptionDecryptionScreen(
                         scrolledContainerColor = MaterialTheme.colorScheme.surface
                     ),
                     actions = {},
-                    expandedHeight = 360.dp
                 )
             }
+        },
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
         },
         bottomBar = {
             val elevation = 8.dp
@@ -262,7 +194,21 @@ fun EncryptionDecryptionScreen(
                 },
                 floatingActionButton = {
                     FloatingActionButton(
-                        onClick = { viewModel.showDialog(BottomDialogState.MultiCrypt)},
+                        onClick = {
+                            if(selectedUris.isNotEmpty()){
+                                viewModel.showDialog(BottomDialogState.MultiCrypt)
+                            }else{
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = "Select at least one file to encrypt!",
+                                        duration = SnackbarDuration.Short,
+                                        withDismissAction = true
+                                    )
+                                }
+                            }
+
+
+                        },
                         containerColor = fabBackgroundColor,
                         elevation = FloatingActionButtonDefaults.bottomAppBarFabElevation()
                     ) {
@@ -284,6 +230,45 @@ fun EncryptionDecryptionScreen(
             item {
                 Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment  = Alignment.CenterHorizontally) {
 
+                    Spacer(modifier = Modifier.height(54.dp))
+
+                    Text(
+                        text = "Secure your files with symmetric encryption",
+                        fontFamily = FontFamily(Font(R.font.jura_medium)),
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = "Select one or more files to encrypt/decrypt",
+                        fontSize = 15.sp,
+                        fontFamily = FontFamily(Font(R.font.jura_regular)),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+
+                    Spacer(modifier = Modifier.height(3.dp))
+                    AssistChip(
+                        modifier = Modifier.padding(16.dp),
+                        onClick = onRequestDirectorySelection,
+                        label = {
+                            Text(
+                                text = currentDirectoryUri?.lastPathSegment ?: "No directory selected",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                painterResource(R.drawable.folder_supervised_24px),
+                                contentDescription = null
+                            )
+                        },
+                        shape = MaterialTheme.shapes.small,
+                        border = AssistChipDefaults.assistChipBorder(false)
+                    )
+
+                    Spacer(modifier = Modifier.height(22.dp))
 
                     Text(
                         text = "${files.size} files in this directory.",
@@ -317,11 +302,24 @@ fun EncryptionDecryptionScreen(
                     },
                     onEncryptDecryptClick = {
                         if(viewModel.defaultConfig.value.password != ""){
-                            viewModel.encryptSingleFile(context,file.uri, currentDirectoryUri!!)
-                        }else{
-                            Toast.makeText(context, "Please enter a password to encrypt this file !", Toast.LENGTH_SHORT).show()
-                        }
+                            //on check si on est sur un fichier crypter ou non
+                            if(file.name.substringAfterLast('.') == "crypt"){
+                                //fichier crypter a decrypter.
 
+                               viewModel.decryptSingleFile(context,file.uri, currentDirectoryUri!!)
+
+
+                            }else{
+                                //fichier classic  a encrypter.
+                                viewModel.encryptSingleFile(context,file.uri, currentDirectoryUri!!)
+                            }
+                        }else{
+
+                            //saisie de mot de passe
+                            viewModel.showDialog(BottomDialogState.PasswordKeySelector)
+
+                            Toast.makeText(context, "Please enter a password to encrypt/decrypte this file !", Toast.LENGTH_SHORT).show()
+                        }
                     },
                     onExpandClick = {
                         viewModel.toggleExpand(file.uri)
@@ -483,11 +481,11 @@ fun EncryptionDecryptionScreen(
                             Text("Close")
                         }
                     },
-                    title = { Text("Set an encryption password ") },
+                    title = { Text("Set a password ") },
                     text = {
                         Column {
                             Text(
-                                "Please enter a password to use for encryption.",
+                                "Please enter a password.",
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Spacer(modifier = Modifier.height(8.dp))
@@ -697,24 +695,46 @@ fun EncryptionDecryptionScreen(
             }
 
             BottomDialogState.MultiCrypt -> {
+
                 AlertDialog(
                     onDismissRequest = { viewModel.dismissDialog() },
                     confirmButton = {
                         TextButton(onClick = {
-                            // Ajoute ici l'action de suppression
-                            viewModel.dismissDialog()
+
+
+                            if(viewModel.defaultConfig.value.password != ""){
+                                viewModel.encryptMultipleFiles(context,currentDirectoryUri!!)
+                                viewModel.dismissDialog()
+                            }else{
+                                viewModel.dismissDialog()
+                                viewModel.showDialog(BottomDialogState.PasswordKeySelector)
+                            }
+
+
+
                         }) {
-                            Text("Supprimer")
+                            Text("Confirm")
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = { viewModel.dismissDialog() }) {
-                            Text("Annuler")
+                            Text("Cancel")
                         }
                     },
-                    title = { Text("Confirmation") },
+                    title = { Text("Multi-crypt") },
                     text = {
-                        Text("Souhaitez-vous vraiment désélectionner tous les fichiers ?")
+                        Column {
+                            Text("Are you sure you want to encrypt these files ?")
+                            Spacer(Modifier.height(8.dp))
+                            LazyColumn(modifier = Modifier.heightIn(max = 200.dp)) {
+                                items(selectedUris.toList()) { uri ->
+                                    Text(
+                                        text = getFileNameFromUri(uri, context) ?: "Fichier inconnu",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                            }
+                        }
                     }
                 )
             }
@@ -723,6 +743,14 @@ fun EncryptionDecryptionScreen(
         }
 
 
+    }
+}
+
+fun getFileNameFromUri(uri: Uri, context: Context): String? {
+    val cursor = context.contentResolver.query(uri, null, null, null, null)
+    return cursor?.use {
+        val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        if (it.moveToFirst() && nameIndex >= 0) it.getString(nameIndex) else null
     }
 }
 
