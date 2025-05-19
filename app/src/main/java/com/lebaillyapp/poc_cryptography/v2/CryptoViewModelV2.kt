@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
 import javax.inject.Inject
 
 @HiltViewModel
@@ -67,6 +68,11 @@ class CryptoViewModelV2 @Inject constructor(
      */
     private val _dialogState = MutableStateFlow<BottomDialogState>(BottomDialogState.None)
     val dialogState: StateFlow<BottomDialogState> = _dialogState
+
+
+
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage
 
 
     // [FUNCTIONS] #############################################################################
@@ -271,6 +277,14 @@ class CryptoViewModelV2 @Inject constructor(
     }
 
 
+    fun encryptMultipleFiles(context: Context, directoryUri: Uri) {
+        _selectedUris.value.forEach { uri ->
+            encryptSingleFile(context, uri, directoryUri)
+        }
+    }
+
+
+
     private fun getParentUriFromUri(uri: Uri): Uri {
         val documentId = DocumentsContract.getDocumentId(uri)
         val treeUri = DocumentsContract.buildDocumentUriUsingTree(uri, documentId)
@@ -343,6 +357,109 @@ class CryptoViewModelV2 @Inject constructor(
      */
     fun encryptSingleFile(context: Context, uri: Uri, directoryUri: Uri) {
         encryptFile(context, uri, directoryUri)
+    }
+
+
+
+    /**
+     * ### `decryptSingleFile`
+     *
+     * deChiffre un fichier precis.
+     * @param context Le contexte Android.
+     * @param uri le fichier a crypter
+     */
+    fun decryptSingleFile(context: Context, uri: Uri, directoryUri: Uri) {
+        Log.d("CryptoViewModel", "Déchiffrement démarré !")
+
+        viewModelScope.launch {
+            val inputStream = context.contentResolver.openInputStream(uri) ?: run {
+                Log.e("CryptoViewModel", "Impossible d'ouvrir le fichier chiffré.")
+                return@launch
+            }
+
+            val originalFileName = getFileNameFromUri(uri, context)?.removeCryptExtension(defaultConfig.value.cryptExtension)
+                ?: run {
+                    Log.e("CryptoViewModel", "Nom de fichier original introuvable.")
+                    return@launch
+                }
+
+            try {
+                // On prépare un buffer temporaire en mémoire
+                val tempOutput = ByteArrayOutputStream()
+
+                // On tente de déchiffrer dans le buffer
+                cryptoRepository.decryptFile(
+                    inputStream = inputStream,
+                    outputStream = tempOutput,
+                    password = defaultConfig.value.password,
+                    keySize = defaultConfig.value.keySize,
+                    iterations = defaultConfig.value.iterations,
+                    mode = defaultConfig.value.mode
+                ).collect { progress ->
+                    updateFileProgress(uri, progress)
+                }
+
+                updateFileProgress(uri, 1f)
+
+                // Si tout a bien marché, on peut créer le vrai fichier sur le disque maintenant
+                val decryptedFileUri = createFileInSameDirectory(
+                    treeUri = directoryUri,
+                    fileName = originalFileName,
+                    context = context
+                ) ?: run {
+                    Log.e("CryptoViewModel", "Impossible de créer le fichier déchiffré.")
+                    return@launch
+                }
+
+                val outputStream = context.contentResolver.openOutputStream(decryptedFileUri) ?: run {
+                    Log.e("CryptoViewModel", "Impossible d'ouvrir le fichier de sortie.")
+                    return@launch
+                }
+
+                outputStream.use {
+                    it.write(tempOutput.toByteArray())
+                }
+
+                Log.d("CryptoViewModel", "Déchiffrement terminé : $originalFileName")
+
+                // Suppression automatique de l'ancien fichier
+                try {
+                    if (DocumentsContract.isDocumentUri(context, uri) &&
+                        uri.toString().startsWith(directoryUri.toString())
+                    ) {
+                        val deleted = DocumentsContract.deleteDocument(context.contentResolver, uri)
+                        if (deleted) {
+                            Log.d("CryptoViewModel", "Fichier chiffré supprimé automatiquement.")
+                        } else {
+                            Log.w("CryptoViewModel", "Échec suppression automatique.")
+                        }
+
+                        loadDirectoryFiles(directoryUri, context)
+                    }
+                } catch (e: Exception) {
+                    Log.e("CryptoViewModel", "Erreur lors de la suppression du fichier chiffré.", e)
+                    _errorMessage.value = "Erreur lors de la suppression de la source : ${e.localizedMessage ?: "inconnue"}"
+                }
+
+            } catch (e: Exception) {
+                Log.e("CryptoViewModel", "Erreur durant le déchiffrement : ${e.message}", e)
+                updateFileProgress(uri, 0f)
+                _errorMessage.value = "Decryption error : Invalid password or decryption mode."
+            }
+        }
+    }
+
+
+    /**
+     * ### `removeCryptExtension`
+     */
+    private fun String.removeCryptExtension(extension: String): String {
+        return if (this.endsWith(extension)) this.removeSuffix(extension) else this
+    }
+
+
+    fun clearErrorMessage() {
+        _errorMessage.value = null
     }
 
     /**
