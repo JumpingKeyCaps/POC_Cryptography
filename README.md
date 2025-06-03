@@ -4,6 +4,14 @@
 
 # Zencrypt
 
+![Platform](https://img.shields.io/badge/platform-Android-3ddc84?logo=android&logoColor=white)
+![Language](https://img.shields.io/badge/kotlin-1.9-blueviolet?logo=kotlin&logoColor=white)
+![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-%F0%9F%8E%B6-blue?logo=android)
+![Min SDK](https://img.shields.io/badge/minSDK-33-brightgreen)
+![Architecture](https://img.shields.io/badge/Architecture-MVVM-orange)
+![Dependency%20Injection](https://img.shields.io/badge/DI-Hilt-5e4adb?logo=dagger&logoColor=white)
+![Encryption](https://img.shields.io/badge/Crypto-AES256-red?logo=cryptography&logoColor=white)
+
 This **Proof of Concept (POC)** Android application demonstrates how to **securely encrypt and decrypt files** stored on a device using **symmetric encryption**.
 
 The app leverages the **Storage Access Framework (SAF)** to let users select any folder on their device, then perform encryption or decryption operations directly on the files inside.
@@ -101,13 +109,6 @@ The app leverages the **Storage Access Framework (SAF)** to let users select any
 ---
 
 
-![Platform](https://img.shields.io/badge/platform-Android-3ddc84?logo=android&logoColor=white)
-![Language](https://img.shields.io/badge/kotlin-1.9-blueviolet?logo=kotlin&logoColor=white)
-![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-%F0%9F%8E%B6-blue?logo=android)
-![Min SDK](https://img.shields.io/badge/minSDK-33-brightgreen)
 
-![Architecture](https://img.shields.io/badge/Architecture-MVVM-orange)
-![Dependency%20Injection](https://img.shields.io/badge/DI-Hilt-5e4adb?logo=dagger&logoColor=white)
-![Encryption](https://img.shields.io/badge/Crypto-AES256-red?logo=cryptography&logoColor=white)
 
 
